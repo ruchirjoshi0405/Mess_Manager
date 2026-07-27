@@ -1,0 +1,360 @@
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+import { Loader2, MessageSquare, ThumbsUp, ThumbsDown, Send, User, Megaphone, Plus, X, MessageCircle } from 'lucide-react'
+import { toast } from 'sonner'
+
+function Home() {
+  const accessToken = localStorage.getItem('accessToken')
+
+  const [posts, setPosts] = useState([])
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+
+  // Modal Visibility Control Toggles
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Form states for the modal input fields
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
+
+  // Tracking state for which post has its comment drawer expanded
+  const [expandedCommentsPostId, setExpandedCommentsPostId] = useState(null)
+  const [commentInput, setCommentInput] = useState("")
+
+  const fetchTimelineFeed = async () => {
+    try {
+      setFeedLoading(true)
+      const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/community/all`)
+      if (res.data.success) {
+        setPosts(res.data.posts)
+      }        
+      console.log("Fetched posts:", res.data.posts)
+
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to sync board discussion metrics.")
+    } finally {
+      setFeedLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchTimelineFeed()
+  }, [accessToken])
+
+  const handlePublishPost = async (e) => {
+    e.preventDefault()
+    if (!title.trim() || !content.trim()) {
+      toast.error("Please supply valid text headers and detail bodies.")
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/community/create`, {
+        title: title.trim(),
+        content: content.trim()
+      }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+
+      if (res.data.success) {
+        toast.success("Suggestion pinned to community wall successfully!")
+        setTitle("")
+        setContent("")
+        setPosts(prev => [res.data.post, ...prev])
+        setIsModalOpen(false) // Smoothly close overlay upon confirmed database execution success
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to broadcast digital suggestion card.")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // 🟢 FIXED UPVOTE ENGAGEMENT STATE HANDLER
+  const handleToggleLike = async (postId) => {
+    try {
+      const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/like`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (res.data.success) {
+        setPosts(prev => prev.map(p => {
+          if (p._id === postId) {
+            // Retain the populated user details for existing items if they match the updated ID string matrix arrays
+            return {
+              ...p,
+              likes: res.data.likes,
+              dislikes: res.data.dislikes
+            }
+          }
+          return p
+        }))
+      }
+    } catch (error) {
+      console.error("Like toggle synchronization error:", error)
+    }
+  }
+
+  // 🟢 FIXED DOWNVOTE ENGAGEMENT STATE HANDLER
+  const handleToggleDislike = async (postId) => {
+    try {
+      const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/dislike`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      if (res.data.success) {
+        setPosts(prev => prev.map(p => {
+          if (p._id === postId) {
+            // Force the structural array parameters to match the freshly returned database arrays
+            return {
+              ...p,
+              likes: res.data.likes,
+              dislikes: res.data.dislikes
+            }
+          }
+          return p
+        }))
+      }
+    } catch (error) {
+      console.error("Dislike toggle synchronization error:", error)
+    }
+  }
+
+  const handleAddComment = async (e, postId) => {
+    e.preventDefault()
+    if (!commentInput.trim()) return
+
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/comment`, {
+        text: commentInput.trim()
+      }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+
+      if (res.data.success) {
+        toast.success("Comment logged successfully!")
+        setPosts(prev => prev.map(p =>
+          p._id === postId ? { ...p, comments: [...p.comments, res.data.comment] } : p
+        ))
+        setCommentInput("")
+      }
+    } catch (error) {
+      toast.error("Failed to commit commentary entry text.")
+    }
+  }
+
+  return (
+    <div className="w-full max-w-4xl py-24 mx-auto p-6 min-h-screen bg-gray-50 flex flex-col gap-6 relative">
+
+      {/* Full-width Responsive Header with Dynamic Trigger Icon button */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-200 pb-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-pink-600 rounded-2xl text-white shadow-sm shadow-pink-100">
+            <Megaphone className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Campus Democratic Forum</h1>
+            <p className="text-gray-500 text-sm mt-0.5">Voice constructive structural critiques, food updates, or facility suggestions.</p>
+          </div>
+        </div>
+
+        {/* DYNAMIC PURE TAILWIND MODAL TRIGGER BUTTON */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md self-start sm:self-auto cursor-pointer"
+        >
+          <Plus className="w-4 h-4" /> Create Post
+        </button>
+      </div>
+
+      {/* FULL VIEWPORT CHROMATIC DISCUSSION STREAM TIMELINE */}
+      <div className="w-full space-y-4 min-h-[400px]">
+        {feedLoading ? (
+          <div className="flex flex-col items-center justify-center py-40 bg-white border border-gray-100 rounded-2xl shadow-sm gap-2">
+            <Loader2 className="w-7 h-7 animate-spin text-pink-500" />
+            <span className="text-xs text-gray-400 font-semibold tracking-wider">Syncing democratic wall components...</span>
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center py-32 bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col items-center justify-center text-gray-400">
+            <MessageSquare className="w-10 h-10 opacity-20 stroke-[1.5] mb-2" />
+            <span className="text-xs italic font-semibold">No discussions or audit suggestions shared yet. Be the first!</span>
+          </div>
+        ) : (
+          posts.map((post) => {
+            const totalLikes = post.likes?.length || 0
+            const totalDislikes = post.dislikes?.length || 0
+            const totalComments = post.comments?.length || 0
+            const isDrawerExpanded = expandedCommentsPostId === post._id
+
+            return (
+              <div key={post._id} className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col gap-3 transition-all hover:border-gray-200 animate-in fade-in duration-150 w-full">
+
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-gray-100 text-gray-500 rounded-xl border border-gray-200/50">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-gray-900">
+                      {`${post.userId?.firstName || 'Hosteller'} ${post.userId?.lastName || ''}`}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
+                      {post.userId?.role === 'admin' ? ' Admin' : post.userId?.role === 'mess_manager' ? ' Mess Manager' : ' Student'} • {post.userId?.hostelName} • {new Date(post.createdAt).toLocaleDateString('en-GB')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 py-1">
+                  <h3 className="text-sm font-black text-gray-900 tracking-tight">{post.title}</h3>
+                  <p className="text-xs text-gray-600 leading-relaxed font-medium whitespace-pre-wrap">{post.content}</p>
+                </div>
+
+                <div className="flex items-center gap-4 pt-2 border-t border-gray-50">
+                  <button
+                    onClick={() => handleToggleLike(post._id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-pink-600 transition-colors cursor-pointer group"
+                  >
+                    <ThumbsUp className="w-4 h-4 group-hover:scale-105 transition-transform" /> {totalLikes}
+                  </button>
+
+                  <button
+                    onClick={() => handleToggleDislike(post._id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-red-600 transition-colors cursor-pointer group"
+                  >
+                    <ThumbsDown className="w-4 h-4 group-hover:scale-105 transition-transform" /> {totalDislikes}
+                  </button>
+
+                  <button
+                    onClick={() => setExpandedCommentsPostId(isDrawerExpanded ? null : post._id)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-pink-600 transition-colors cursor-pointer ml-auto"
+                  >
+                    <MessageCircle className="w-4 h-4" /> {totalComments} Comments
+                  </button>
+                </div>
+
+                {isDrawerExpanded && (
+                  <div className="mt-3 bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
+                      {post.comments?.length === 0 ? (
+                        <span className="text-[10px] text-gray-400 italic block py-4 text-center">No remarks posted. Share your stance below.</span>
+                      ) : (
+                        post.comments.map((comment) => (
+                          <div key={comment._id} className="bg-white border border-gray-100 p-2.5 rounded-xl flex flex-col gap-1 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-black text-gray-900">
+                                {`${comment.userId?.firstName || 'Hosteller'} ${comment.userId?.lastName || ''}`}
+                                <span className="text-[8px] ml-1 text-gray-400 font-bold uppercase tracking-wider">
+                                  ({comment.userId?.role || 'student'} • {post.userId?.hostelName})
+                                </span>
+                              </span>
+                              <span className="text-[9px] text-gray-400 font-mono">
+                                {new Date(comment.createdAt).toLocaleDateString('en-GB')}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-600 font-medium leading-relaxed">{comment.text}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <form onSubmit={(e) => handleAddComment(e, post._id)} className="flex gap-2 items-center border-t border-gray-200/60 pt-2.5">
+                      <input
+                        type="text"
+                        value={commentInput}
+                        onChange={(e) => setCommentInput(e.target.value)}
+                        placeholder="Type your comment or clarification..."
+                        className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-semibold outline-none focus:border-pink-500 shadow-inner"
+                      />
+                      <button
+                        type="submit"
+                        className="p-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl shadow transition-colors cursor-pointer flex justify-center items-center"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* 🟢 CUSTOM PORTAL MODAL DIALOG OVERLAY (No external UI libraries needed) */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+
+          {/* Dark frosted glass backdrop blur behind the card window pane */}
+          <div
+            onClick={() => setIsModalOpen(false)}
+            className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm cursor-pointer"
+          />
+
+          {/* Inner Central Dialogue Card Content block */}
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 z-10">
+
+            {/* Header Context Bar */}
+            <div className="px-6 py-4 bg-pink-50/40 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-pink-600" />
+                <h3 className="text-sm font-bold text-gray-900">Publish Discussion Topic</h3>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Creation Content Entry form inputs panel */}
+            <form onSubmit={handlePublishPost} className="p-6 space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Topic Headline Summary:</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Requesting extension for Wednesday dinner slot timers"
+                  className="w-full bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-xl px-3 py-2.5 outline-none focus:border-pink-500 shadow-sm"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Elaborate Statement context:</label>
+                <textarea
+                  rows={5}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Provide transparent arguments, detail descriptions or operational adjustment logs context..."
+                  className="w-full bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-xl px-3 py-2.5 outline-none focus:border-pink-500 shadow-sm resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-500 font-bold text-xs rounded-xl h-9 hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="px-5 py-2 bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl h-9 shadow-md transition-all cursor-pointer flex justify-center items-center"
+                >
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publish Board Post"}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+export default Home
