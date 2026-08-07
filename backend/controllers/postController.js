@@ -49,22 +49,34 @@ export const toggleLikePost = async (req, res) => {
         const { postId } = req.params;
         const userId = req.id;
 
+        // 1. Check current state (Read-only, no risk of overwriting arrays)
         const post = await Post.findById(postId);
         if (!post) return res.status(404).json({ success: false, message: "Post data array record missing." });
 
         const hasLiked = post.likes.includes(userId);
+        let updatedPost;
         
         if (hasLiked) {
-            // Undo like
-            post.likes = post.likes.filter(id => id.toString() !== userId);
+            // Undo like: Atomically remove the user from the likes array
+            updatedPost = await Post.findByIdAndUpdate(
+                postId, 
+                { $pull: { likes: userId } },
+                { new: true } // Returns the newly updated document
+            );
         } else {
-            // Upvote and wipe any conflicting downvotes
-            post.likes.push(userId);
-            post.dislikes = post.dislikes.filter(id => id.toString() !== userId);
+            // Upvote: Atomically add to likes (if not present) AND remove from dislikes
+            updatedPost = await Post.findByIdAndUpdate(
+                postId, 
+                { 
+                    $addToSet: { likes: userId },
+                    $pull: { dislikes: userId } 
+                },
+                { new: true }
+            );
         }
 
-        await post.save();
-        return res.status(200).json({ success: true, likes: post.likes, dislikes: post.dislikes });
+        // Return the fresh arrays to sync with the React frontend state
+        return res.status(200).json({ success: true, likes: updatedPost.likes, dislikes: updatedPost.dislikes });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -80,23 +92,32 @@ export const toggleDislikePost = async (req, res) => {
         if (!post) return res.status(404).json({ success: false, message: "Post token matrix mismatch." });
 
         const hasDisliked = post.dislikes.includes(userId);
+        let updatedPost;
 
         if (hasDisliked) {
             // Undo dislike
-            post.dislikes = post.dislikes.filter(id => id.toString() !== userId);
+            updatedPost = await Post.findByIdAndUpdate(
+                postId,
+                { $pull: { dislikes: userId } },
+                { new: true }
+            );
         } else {
-            // Downvote and clear out existing upvotes
-            post.dislikes.push(userId);
-            post.likes = post.likes.filter(id => id.toString() !== userId);
+            // Downvote: Atomically add to dislikes AND remove from likes
+            updatedPost = await Post.findByIdAndUpdate(
+                postId,
+                {
+                    $addToSet: { dislikes: userId },
+                    $pull: { likes: userId }
+                },
+                { new: true }
+            );
         }
 
-        await post.save();
-        return res.status(200).json({ success: true, likes: post.likes, dislikes: post.dislikes });
+        return res.status(200).json({ success: true, likes: updatedPost.likes, dislikes: updatedPost.dislikes });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
-
 // E. COMMENT ATTACHMENT HUB
 export const addCommentToPost = async (req, res) => {
     try {

@@ -4,18 +4,7 @@ import { Loader2, MessageSquare, ThumbsUp, ThumbsDown, Send, User, Megaphone, Pl
 import { toast } from 'sonner'
 
 function Home() {
-  const accessToken = localStorage.getItem('accessToken');
-
-  // Decode the JWT payload to grab the logged-in user's ID
-  const currentUserId = React.useMemo(() => {
-    if (!accessToken) return null;
-    try {
-      const payload = JSON.parse(atob(accessToken.split('.')[1]));
-      return payload.id; // Check your backend to see if this is 'userId' or just 'id'
-    } catch (e) {
-      return null;
-    }
-  }, [accessToken]);
+  const accessToken = localStorage.getItem('accessToken')
 
   const [posts, setPosts] = useState([])
   const [feedLoading, setFeedLoading] = useState(false)
@@ -38,7 +27,7 @@ function Home() {
       const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/community/all`)
       if (res.data.success) {
         setPosts(res.data.posts)
-      }
+      }        
       console.log("Fetched posts:", res.data.posts)
 
     } catch (error) {
@@ -196,8 +185,6 @@ function Home() {
             const totalDislikes = post.dislikes?.length || 0
             const totalComments = post.comments?.length || 0
             const isDrawerExpanded = expandedCommentsPostId === post._id
-            const hasLiked = post.likes?.includes(currentUserId);
-            const hasDisliked = post.dislikes?.includes(currentUserId);
 
             return (
               <div key={post._id} className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex flex-col gap-3 transition-all hover:border-gray-200 animate-in fade-in duration-150 w-full">
@@ -224,26 +211,16 @@ function Home() {
                 <div className="flex items-center gap-4 pt-2 border-t border-gray-50">
                   <button
                     onClick={() => handleToggleLike(post._id)}
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer group ${hasLiked ? "text-pink-600" : "text-gray-500 hover:text-pink-600"
-                      }`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-pink-600 transition-colors cursor-pointer group"
                   >
-                    <ThumbsUp
-                      className={`w-4 h-4 transition-transform group-hover:scale-105 ${hasLiked ? "fill-pink-600 text-pink-600" : ""
-                        }`}
-                    />
-                    {totalLikes}
+                    <ThumbsUp className="w-4 h-4 group-hover:scale-105 transition-transform" /> {totalLikes}
                   </button>
 
                   <button
                     onClick={() => handleToggleDislike(post._id)}
-                    className={`inline-flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer group ${hasDisliked ? "text-red-600" : "text-gray-500 hover:text-red-600"
-                      }`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-red-600 transition-colors cursor-pointer group"
                   >
-                    <ThumbsDown
-                      className={`w-4 h-4 transition-transform group-hover:scale-105 ${hasDisliked ? "fill-red-600 text-red-600" : ""
-                        }`}
-                    />
-                    {totalDislikes}
+                    <ThumbsDown className="w-4 h-4 group-hover:scale-105 transition-transform" /> {totalDislikes}
                   </button>
 
                   <button

@@ -1,0 +1,52 @@
+export const toggleLikePost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const userId = req.id;
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ success: false, message: "Post data array record missing." });
+
+        const hasLiked = post.likes.includes(userId);
+        
+        if (hasLiked) {
+            // Undo like
+            post.likes = post.likes.filter(id => id.toString() !== userId);
+        } else {
+            // Upvote and wipe any conflicting downvotes
+            post.likes.push(userId);
+            post.dislikes = post.dislikes.filter(id => id.toString() !== userId);
+        }
+
+        await post.save();
+        return res.status(200).json({ success: true, likes: post.likes, dislikes: post.dislikes });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// D. INTERACTIVE DOWNVOTE TOGGLE ACTION
+export const toggleDislikePost = async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const userId = req.id;
+
+        const post = await Post.findById(postId);
+        if (!post) return res.status(404).json({ success: false, message: "Post token matrix mismatch." });
+
+        const hasDisliked = post.dislikes.includes(userId);
+
+        if (hasDisliked) {
+            // Undo dislike
+            post.dislikes = post.dislikes.filter(id => id.toString() !== userId);
+        } else {
+            // Downvote and clear out existing upvotes
+            post.dislikes.push(userId);
+            post.likes = post.likes.filter(id => id.toString() !== userId);
+        }
+
+        await post.save();
+        return res.status(200).json({ success: true, likes: post.likes, dislikes: post.dislikes });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
