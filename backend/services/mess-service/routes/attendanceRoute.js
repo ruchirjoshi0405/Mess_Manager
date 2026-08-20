@@ -6,9 +6,11 @@ import {
     rateMealSlot,
     getHeadcount
 } from '../controllers/attendanceController.js';
-import { isAuthenticated, isAuthorized } from '../middleware/isAuthenticated.js';
+import { isAuthenticated, isAuthorized } from '../../../middleware/isAuthenticated.js';
 
 const router = express.Router();
+
+// ==================== ATTENDANCE & MEAL PREFERENCES ====================
 
 // 1. Fetch current preference records for a single calendar day (Student view)
 router.get('/view', isAuthenticated, getAttendanceByDate);
@@ -19,9 +21,12 @@ router.put('/update-meal', isAuthenticated, updateMealStatus);
 // 3. Batch toggle full-day leave (Flips all slots for that date at once)
 router.put('/toggle-leave', isAuthenticated, toggleDayLeave);
 
-// 4. Extract total cooking portions needed (Restricted exclusively to kitchen management)
-router.get('/headcount', isAuthenticated, isAuthorized(['admin', 'mess_manager']), getHeadcount);
-
+// 4. Rate a specific meal slot after consumption
 router.put('/rate-meal', isAuthenticated, rateMealSlot);
+
+// ==================== KITCHEN ANALYTICS ====================
+
+// 5. Extract total cooking portions needed (Restricted exclusively to kitchen management)
+router.get('/headcount', isAuthenticated, isAuthorized(['admin', 'mess_manager']), getHeadcount);
 
 export default router;

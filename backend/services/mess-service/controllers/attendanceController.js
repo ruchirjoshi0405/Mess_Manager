@@ -1,5 +1,5 @@
-import { Attendance } from "../models/attendanceModel.js";
-import { Menu } from "../models/menuModel.js";
+import { Attendance } from "../../../models/attendanceModel.js";
+import { Menu } from "../../../models/menuModel.js";
 
 // Helper function to create a clean, timezone-neutral midnight local date object
 const parseAsMidnightLocal = (dateString) => {
@@ -15,26 +15,25 @@ export const getAttendanceByDate = async (req, res) => {
 
         if (!date) {
             return res.status(400).json({
-                "success": false,
-                "message": "Date parameter is required"
+                success: false,
+                message: "Date parameter is required"
             });
         }
 
-        // FIXED: Replaced standard instantiation with safe local split to prevent UTC shifts
         const targetDate = parseAsMidnightLocal(date);
         
+        // Mongoose population occurs within the same service DB boundary (Menu model)
         let attendance = await Attendance.findOne({ userId, date: targetDate })
             .populate("meals.breakfast.menuId")
             .populate("meals.lunch.menuId")
             .populate("meals.snacks.menuId")
             .populate("meals.dinner.menuId");
 
-        // If no record exists yet, return an empty tracking state to the frontend
         if (!attendance) {
             return res.status(200).json({
-                "success": true,
-                "message": "No specific changes saved. Standard defaults apply.",
-                "attendance": {
+                success: true,
+                message: "No specific changes saved. Standard defaults apply.",
+                attendance: {
                     userId,
                     date: targetDate,
                     isOnLeave: false,
@@ -49,32 +48,31 @@ export const getAttendanceByDate = async (req, res) => {
         }
 
         return res.status(200).json({
-            "success": true,
-            "message": "Attendance record retrieved successfully",
+            success: true,
+            message: "Attendance record retrieved successfully",
             attendance
         });
     } catch (error) {
         return res.status(500).json({
-            "success": false,
-            "message": "getAttendanceByDate: Internal server error"
+            success: false,
+            message: "getAttendanceByDate: Internal server error"
         });
     }
-}
+};
 
 // 2. TOGGLE OR REGISTER MEAL STATUS
 export const updateMealStatus = async (req, res) => {
     try {
         const userId = req.id;
-        const { date, mealType, status } = req.body; // mealType: 'breakfast'|'lunch' etc., status: 'eating'|'skipping'
+        const { date, mealType, status } = req.body;
 
         if (!date || !mealType || status == null) {
             return res.status(400).json({
-                "success": false,
-                "message": "Date, mealType, and eating status are required"
+                success: false,
+                message: "Date, mealType, and eating status are required"
             });
         }
 
-        // FIXED: Standardized date serialization
         const targetDate = parseAsMidnightLocal(date);
         let attendance = await Attendance.findOne({ userId, date: targetDate });
 
@@ -93,32 +91,31 @@ export const updateMealStatus = async (req, res) => {
 
         await attendance.save();
         return res.status(200).json({
-            "success": true,
-            "message": `${mealType} status updated to ${status} successfully`,
+            success: true,
+            message: `${mealType} status updated to ${status} successfully`,
             attendance
         });
     } catch (error) {
         return res.status(500).json({
-            "success": false,
-            "message": "updateMealStatus: Internal server error"
+            success: false,
+            message: "updateMealStatus: Internal server error"
         });
     }
-}
+};
 
 // 3. APPLY FULL-DAY LEAVE OVERRIDE
 export const toggleDayLeave = async (req, res) => {
     try {
         const userId = req.id;
-        const { date, isOnLeave } = req.body; // isOnLeave: true/false
+        const { date, isOnLeave } = req.body;
 
         if (!date || isOnLeave === undefined) {
             return res.status(400).json({
-                "success": false,
-                "message": "Date and leave status flag are required"
+                success: false,
+                message: "Date and leave status flag are required"
             });
         }
 
-        // FIXED: Standardized date serialization
         const targetDate = parseAsMidnightLocal(date);
         let attendance = await Attendance.findOne({ userId, date: targetDate });
 
@@ -130,7 +127,6 @@ export const toggleDayLeave = async (req, res) => {
         }
 
         attendance.isOnLeave = isOnLeave;
-        // If on leave, automatically batch-flip all slots to skipping and clear ratings
         if (isOnLeave) {
             attendance.meals.breakfast.status = 'skipping';
             attendance.meals.breakfast.rating = null;
@@ -141,7 +137,6 @@ export const toggleDayLeave = async (req, res) => {
             attendance.meals.dinner.status = 'skipping';
             attendance.meals.dinner.rating = null;
         } else {
-            // Revert back to baseline operation parameters
             attendance.meals.breakfast.status = 'eating';
             attendance.meals.lunch.status = 'eating';
             attendance.meals.snacks.status = 'eating';
@@ -150,40 +145,39 @@ export const toggleDayLeave = async (req, res) => {
 
         await attendance.save();
         return res.status(200).json({
-            "success": true,
-            "message": isOnLeave ? "Full day marked as leave successfully" : "Leave cancelled",
+            success: true,
+            message: isOnLeave ? "Full day marked as leave successfully" : "Leave cancelled",
             attendance
         });
     } catch (error) {
         return res.status(500).json({
-            "success": false,
-            "message": "toggleDayLeave: Internal server error"
+            success: false,
+            message: "toggleDayLeave: Internal server error"
         });
     }
-}
+};
 
 // 4. SUBMIT STAR RATING FEEDBACK FOR AN INDIVIDUAL MEAL SLOT
 export const rateMealSlot = async (req, res) => {
     try {
         const userId = req.id;
-        const { date, mealType, rating } = req.body; // mealType: 'breakfast'|'lunch' etc, rating: 1-5
+        const { date, mealType, rating } = req.body;
 
         if (!date || !mealType || !rating) {
             return res.status(400).json({
-                "success": false,
-                "message": "Date, mealType, and star rating are required parameters"
+                success: false,
+                message: "Date, mealType, and star rating are required parameters"
             });
         }
 
         if (rating < 1 || rating > 5) {
             return res.status(400).json({
-                "success": false,
-                "message": "Rating value bounds must reside strictly between 1 and 5 stars"
+                success: false,
+                message: "Rating value bounds must reside strictly between 1 and 5 stars"
             });
         }
 
         const mealKey = mealType.toLowerCase();
-        
         const targetDate = parseAsMidnightLocal(date);
 
         const today = new Date();
@@ -192,24 +186,22 @@ export const rateMealSlot = async (req, res) => {
 
         if (targetDate > today) {
             return res.status(400).json({
-                "success": false,
-                "message": "Cannot submit meal feedback parameters for unserved future dates"
+                success: false,
+                message: "Cannot submit meal feedback parameters for unserved future dates"
             });
         }
 
-        // NEW CUTOFF CHECK FOR TODAY: Define hours matching frontend boundaries
         const MEAL_CUTOFF_HOURS = { breakfast: 8, lunch: 12, snacks: 17, dinner: 20 };
 
         if (targetDate.getTime() === today.getTime() && currentHour < MEAL_CUTOFF_HOURS[mealKey]) {
             return res.status(400).json({
-                "success": false,
-                "message": `Feedback window hasn't opened yet! You can rate this meal after ${MEAL_CUTOFF_HOURS[mealKey]}:00.`
+                success: false,
+                message: `Feedback window hasn't opened yet! You can rate this meal after ${MEAL_CUTOFF_HOURS[mealKey]}:00.`
             });
         }
 
         let attendance = await Attendance.findOne({ userId, date: targetDate });
 
-        // If no attendance record is saved yet, standard baseline implies they were registered as 'eating'
         if (!attendance) {
             attendance = new Attendance({
                 userId,
@@ -217,34 +209,29 @@ export const rateMealSlot = async (req, res) => {
             });
         }
 
-        // Operational Security Check 2: Ensure student actually ate the meal before rating it
         if (attendance.meals[mealKey].status === 'skipping' || attendance.isOnLeave) {
             return res.status(400).json({
-                "success": false,
-                "message": "Feedback authorization rejected. Ratings are restricted to opted-in consumed meals only"
+                success: false,
+                message: "Feedback authorization rejected. Ratings are restricted to opted-in consumed meals only"
             });
         }
 
-        // Apply rating parameter safely
         attendance.meals[mealKey].rating = rating;
         await attendance.save();
 
-        const verify = await Attendance.findById(attendance._id);
-        console.log("After save:", verify.meals[mealKey]);
-
         return res.status(200).json({
-            "success": true,
-            "message": `Successfully registered a ${rating}-star feedback index for ${mealType}`,
+            success: true,
+            message: `Successfully registered a ${rating}-star feedback index for ${mealType}`,
             attendance
         });
     } catch (error) {
         console.error("rateMealSlot Error:", error);
         return res.status(500).json({
-            "success": false,
-            "message": "rateMealSlot: Internal server error"
+            success: false,
+            message: "rateMealSlot: Internal server error"
         });
     }
-}
+};
 
 // 5. GET HEADCOUNT PREDICTIONS (Exclusively for Mess Managers / Admins)
 export const getHeadcount = async (req, res) => {
@@ -252,12 +239,11 @@ export const getHeadcount = async (req, res) => {
         const { date } = req.query;
         if (!date) {
             return res.status(400).json({
-                "success": false,
-                "message": "Target calculation date required"
+                success: false,
+                message: "Target calculation date required"
             });
         }
 
-        // FIXED: Standardized date serialization
         const targetDate = parseAsMidnightLocal(date);
         
         const breakfastEating = await Attendance.countDocuments({ date: targetDate, "meals.breakfast.status": "eating" });
@@ -271,19 +257,19 @@ export const getHeadcount = async (req, res) => {
         const dinnerSkipping = await Attendance.countDocuments({ date: targetDate, "meals.dinner.status": "skipping" });
 
         return res.status(200).json({
-            "success": true,
-            "date": date,
-            "headcounts": {
-                "Breakfast": { eating: breakfastEating, skipping: breakfastSkipping },
-                "Lunch": { eating: lunchEating, skipping: lunchSkipping },
-                "Snacks": { eating: snacksEating, skipping: snacksSkipping },
-                "Dinner": { eating: dinnerEating, skipping: dinnerSkipping }
+            success: true,
+            date: date,
+            headcounts: {
+                Breakfast: { eating: breakfastEating, skipping: breakfastSkipping },
+                Lunch: { eating: lunchEating, skipping: lunchSkipping },
+                Snacks: { eating: snacksEating, skipping: snacksSkipping },
+                Dinner: { eating: dinnerEating, skipping: dinnerSkipping }
             }
         });
     } catch (error) {
         return res.status(500).json({
-            "success": false,
-            "message": "getHeadcount: Internal server error"
+            success: false,
+            message: "getHeadcount: Internal server error"
         });
     }
-}
+};
