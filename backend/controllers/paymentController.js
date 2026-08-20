@@ -92,7 +92,7 @@ export const bulkInitializeFee = async (req, res) => {
             month: sessionOrMonth, // Storing semantic grouping string directly into your month parameter
             amount: Number(amount),
             currency: "INR",
-            status: "Unpaid", 
+            status: "Unpaid",
             razorpayOrderId: "BULK_INITIATED_BY_ADMIN" // Distinguishes it from single checkout intents
         }));
 
@@ -147,7 +147,20 @@ export const verifyFeePayment = async (req, res) => {
             .update(sign.toString())
             .digest("hex");
 
-        if (razorpay_signature === expectedSignature) {
+        // 1. Convert both string signatures into raw memory Buffers
+        const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+        const receivedBuffer = Buffer.from(razorpay_signature, 'hex');
+
+        // 2. Safely compare them to prevent Timing Attacks
+        let isAuthentic = false;
+
+        // We must check length first, as timingSafeEqual throws an error on length mismatch
+        if (expectedBuffer.length === receivedBuffer.length) {
+            isAuthentic = crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+        }
+
+        // 3. Execute database transactions based on the authentic result
+        if (isAuthentic) {
             const paymentRecord = await Payment.findOneAndUpdate(
                 { razorpayOrderId: razorpay_order_id },
                 {
@@ -164,10 +177,12 @@ export const verifyFeePayment = async (req, res) => {
                 payment: paymentRecord
             });
         } else {
+            // Log the failed attempt in the database
             await Payment.findOneAndUpdate(
                 { razorpayOrderId: razorpay_order_id },
                 { status: "Failed" }
             );
+
             return res.status(400).json({
                 success: false,
                 message: "Security verification failed: Invalid Signature"
@@ -246,7 +261,7 @@ export const setIndividualStudentFee = async (req, res) => {
 // 3. ROSTER UTILITY: COMPILE FULL FINANCIAL LEDGER DICTIONARY MAP
 export const getAllStudentPaymentStatuses = async (req, res) => {
     try {
-        const { sessionOrMonth } = req.query; 
+        const { sessionOrMonth } = req.query;
 
         if (!sessionOrMonth) {
             return res.status(400).json({
