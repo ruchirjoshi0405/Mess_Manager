@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import razorpayInstance from "../config/razorpay.js";
-import { Payment } from "../models/paymentModel.js";
-import { User } from "../models/userModel.js";
+import axios from "axios";
+import razorpayInstance from "../../../config/razorpay.js";
+import { Payment } from "../../../models/paymentModel.js";
 
 // 1. INITIALIZE RAZORPAY TRANSACTION FOR MESS FEES
 export const initiateFeePayment = async (req, res) => {
@@ -16,10 +16,8 @@ export const initiateFeePayment = async (req, res) => {
             });
         }
 
-        // 1. Look for the pre-existing allocation record created by the admin's bulk push
-        let paymentRecord = await Payment.findOne({ month });
+        let paymentRecord = await Payment.findOne({ month, userId });
 
-        // Fallback: if no record exists yet (e.g., student joined late), create a baseline record
         if (!paymentRecord) {
             paymentRecord = new Payment({
                 userId,
@@ -29,31 +27,28 @@ export const initiateFeePayment = async (req, res) => {
             });
         }
 
-        // 2. Generate the Razorpay transactional order parameters
         const options = {
-            amount: Math.round(Number(amount) * 100), // Convert rupees to paise
+            amount: Math.round(Number(amount) * 100),
             receipt: `receipt_fee_${Date.now()}`,
         };
 
         const razorpayOrder = await razorpayInstance.orders.create(options);
 
-        // 3. Update the existing record with the new order ID instead of saving duplicates
         paymentRecord.razorpayOrderId = razorpayOrder.id;
-        paymentRecord.amount = Number(amount); // Keep amount synchronized
+        paymentRecord.amount = Number(amount);
         paymentRecord.status = "Pending";
         await paymentRecord.save();
 
-        // 4. Return matching destructured variables directly at the response root level
         return res.status(201).json({
             success: true,
             message: "Fee order initiated successfully",
             orderId: razorpayOrder.id,
             amount: razorpayOrder.amount,
             currency: razorpayOrder.currency,
-            razorpayKey: process.env.RAZORPAY_KEY_ID // Send key down securely from server configuration environment variables
+            razorpayKey: process.env.RAZORPAY_KEY_ID
         });
     } catch (error) {
-        console.error(error);
+        console.error("initiateFeePayment error:", error);
         return res.status(500).json({
             success: false,
             message: "initiateFeePayment: Internal Server Error."
@@ -61,11 +56,10 @@ export const initiateFeePayment = async (req, res) => {
     }
 };
 
-// Add this to your paymentController.js file:
-
+// 2. BULK INITIALIZE FEE (MICROSERVICE INTER-SERVICE CALL)
 export const bulkInitializeFee = async (req, res) => {
     try {
-        const { amount, sessionOrMonth } = req.body; // e.g., { amount: 25000, sessionOrMonth: "Semester-1 (July-Dec)" }
+        const { amount, sessionOrMonth } = req.body;
 
         if (!amount || !sessionOrMonth) {
             return res.status(400).json({
@@ -74,10 +68,16 @@ export const bulkInitializeFee = async (req, res) => {
             });
         }
 
-        // 1. Fetch all registered user profiles with student authorization clearances
-        const students = await User.find({ role: 'student' });
+        // =========================================================================
+        // MICROSERVICE PATTERN: Inter-Service HTTP Call
+        // Fetch student accounts from User Microservice instead of direct DB query
+        // =========================================================================
+        const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:5001';
+        const userRes = await axios.get(`${userServiceUrl}/api/v1/user/allUsers`, {
+            headers: { Authorization: req.headers.authorization } // Pass incoming JWT
+        });
 
-        console.log('students, ', students);
+        const students = userRes.data.users || [];
 
         if (students.length === 0) {
             return res.status(404).json({
@@ -86,20 +86,16 @@ export const bulkInitializeFee = async (req, res) => {
             });
         }
 
-        // 2. Map existing profiles directly over to write allocations
         const bulkData = students.map(student => ({
             userId: student._id,
-            month: sessionOrMonth, // Storing semantic grouping string directly into your month parameter
+            month: sessionOrMonth,
             amount: Number(amount),
             currency: "INR",
             status: "Unpaid",
-            razorpayOrderId: "BULK_INITIATED_BY_ADMIN" // Distinguishes it from single checkout intents
+            razorpayOrderId: "BULK_INITIATED_BY_ADMIN"
         }));
 
-        // 3. Clear older pending intents for this slot to prevent data corruption
         await Payment.deleteMany({ month: sessionOrMonth });
-
-        // 4. Batch-insert records cleanly
         const records = await Payment.insertMany(bulkData);
 
         return res.status(201).json({
@@ -108,7 +104,7 @@ export const bulkInitializeFee = async (req, res) => {
             count: records.length
         });
     } catch (error) {
-        console.error("bulkInitializeFee error:", error);
+        console.error("bulkInitializeFee error:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
             message: "bulkInitializeFee: Internal Server Error."
@@ -116,7 +112,7 @@ export const bulkInitializeFee = async (req, res) => {
     }
 };
 
-// 2. CRYPTOGRAPHIC VERIFICATION OF PAYMENT SIGNATURES
+// 3. CRYPTOGRAPHIC VERIFICATION OF PAYMENT SIGNATURES
 export const verifyFeePayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentFailed } = req.body;
@@ -147,19 +143,14 @@ export const verifyFeePayment = async (req, res) => {
             .update(sign.toString())
             .digest("hex");
 
-        // 1. Convert both string signatures into raw memory Buffers
         const expectedBuffer = Buffer.from(expectedSignature, 'hex');
         const receivedBuffer = Buffer.from(razorpay_signature, 'hex');
 
-        // 2. Safely compare them to prevent Timing Attacks
         let isAuthentic = false;
-
-        // We must check length first, as timingSafeEqual throws an error on length mismatch
         if (expectedBuffer.length === receivedBuffer.length) {
             isAuthentic = crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
         }
 
-        // 3. Execute database transactions based on the authentic result
         if (isAuthentic) {
             const paymentRecord = await Payment.findOneAndUpdate(
                 { razorpayOrderId: razorpay_order_id },
@@ -177,7 +168,6 @@ export const verifyFeePayment = async (req, res) => {
                 payment: paymentRecord
             });
         } else {
-            // Log the failed attempt in the database
             await Payment.findOneAndUpdate(
                 { razorpayOrderId: razorpay_order_id },
                 { status: "Failed" }
@@ -189,7 +179,7 @@ export const verifyFeePayment = async (req, res) => {
             });
         }
     } catch (error) {
-        console.error(error);
+        console.error("verifyFeePayment error:", error);
         return res.status(500).json({
             success: false,
             message: "verifyFeePayment: Internal Server Error."
@@ -197,7 +187,7 @@ export const verifyFeePayment = async (req, res) => {
     }
 };
 
-// 3. STUDENT PERSONAL TRANSACTIONS LEDGER
+// 4. STUDENT PERSONAL TRANSACTIONS LEDGER
 export const getMyPaymentHistory = async (req, res) => {
     try {
         const userId = req.id;
@@ -218,6 +208,7 @@ export const getMyPaymentHistory = async (req, res) => {
     }
 };
 
+// 5. INDIVIDUAL STUDENT MANUAL ALLOCATION
 export const setIndividualStudentFee = async (req, res) => {
     try {
         const { userId, amount, sessionOrMonth, status } = req.body;
@@ -229,17 +220,14 @@ export const setIndividualStudentFee = async (req, res) => {
             });
         }
 
-        // 🟢 FIXED: Converts incoming UI actions to exact matching Model Enum keys ('Paid' / 'Pending')
-        const modelTargetStatus = status;
-
         const updatedPayment = await Payment.findOneAndUpdate(
             { userId, month: sessionOrMonth },
             {
                 userId,
                 month: sessionOrMonth,
                 amount: Number(amount),
-                status: modelTargetStatus,
-                razorpayOrderId: modelTargetStatus === "Paid" ? "OFFLINE_MANUAL_CLEARANCE" : "MANUAL_PENDING_RESET"
+                status: status,
+                razorpayOrderId: status === "Paid" ? "OFFLINE_MANUAL_CLEARANCE" : "MANUAL_PENDING_RESET"
             },
             { new: true, upsert: true }
         );
@@ -250,7 +238,7 @@ export const setIndividualStudentFee = async (req, res) => {
             payment: updatedPayment
         });
     } catch (error) {
-        console.error(error);
+        console.error("setIndividualStudentFee error:", error);
         return res.status(500).json({
             success: false,
             message: "setIndividualStudentFee: Internal Server Error."
@@ -258,7 +246,7 @@ export const setIndividualStudentFee = async (req, res) => {
     }
 };
 
-// 3. ROSTER UTILITY: COMPILE FULL FINANCIAL LEDGER DICTIONARY MAP
+// 6. ROSTER UTILITY: FULL LEDGER FETCH
 export const getAllStudentPaymentStatuses = async (req, res) => {
     try {
         const { sessionOrMonth } = req.query;
@@ -277,7 +265,7 @@ export const getAllStudentPaymentStatuses = async (req, res) => {
             payments
         });
     } catch (error) {
-        console.error(error);
+        console.error("getAllStudentPaymentStatuses error:", error);
         return res.status(500).json({
             success: false,
             message: "getAllStudentPaymentStatuses: Internal Server Error."

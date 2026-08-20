@@ -1,7 +1,8 @@
-import { Expense } from "../models/expenseModel.js";
-import { Payment } from "../models/paymentModel.js";
-import { User } from "../models/userModel.js";
+import axios from "axios";
+import { Expense } from "../../../models/expenseModel.js";
+import { Payment } from "../../../models/paymentModel.js";
 
+// 1. LOG OPERATIONAL EXPENSE VOUCHER
 export const logExpense = async (req, res) => {
     try {
         const { supplierName, category, items, totalCost, paymentMethod, expenseDate } = req.body;
@@ -14,7 +15,6 @@ export const logExpense = async (req, res) => {
             });
         }
 
-        // Parse items if they come in as a stringified JSON array from multi-part forms
         const cleanItems = typeof items === 'string' ? JSON.parse(items) : items;
 
         const newExpense = await Expense.create({
@@ -41,25 +41,35 @@ export const logExpense = async (req, res) => {
     }
 };
 
-// 2. FINANCIAL DASHBOARD ENGINE (Replaces getSalesData)
+// 2. FINANCIAL DASHBOARD ENGINE
 export const getMessFinancials = async (req, res) => {
     try {
-        const totalStudents = await User.countDocuments({ role: "student" });
-        
-        // Dynamic pipeline computing sum of successful student collections (Income In)
+        // MICROSERVICE PATTERN: Fetch student count via HTTP call to User Microservice
+        let totalStudents = 0;
+        try {
+            const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:5001';
+            const userRes = await axios.get(`${userServiceUrl}/api/v1/user/allUsers`, {
+                headers: { Authorization: req.headers.authorization }
+            });
+            totalStudents = userRes.data.users ? userRes.data.users.length : 0;
+        } catch (err) {
+            console.error("Error fetching student count from User Service:", err.message);
+        }
+
+        // Sum of successful student collections (Income In)
         const totalRevenueAggregate = await Payment.aggregate([
             { $match: { status: "Paid" } },
             { $group: { _id: null, total: { $sum: "$amount" } } }
         ]);
         const totalIncome = totalRevenueAggregate[0]?.total || 0;
 
-        // Dynamic pipeline computing sum of raw operational costs (Expenses Out)
+        // Sum of raw operational costs (Expenses Out)
         const totalExpenseAggregate = await Expense.aggregate([
             { $group: { _id: null, total: { $sum: "$totalCost" } } }
         ]);
         const totalSpent = totalExpenseAggregate[0]?.total || 0;
 
-        // Group expenses by category for frontend distribution tracking charts
+        // Expense distribution by category
         const structuralBreakdown = await Expense.aggregate([
             { $group: { _id: "$category", totalAllocated: { $sum: "$totalCost" } } }
         ]);
@@ -75,6 +85,7 @@ export const getMessFinancials = async (req, res) => {
             breakdownByCategory: structuralBreakdown
         });
     } catch (error) {
+        console.error("getMessFinancials error:", error);
         return res.status(500).json({
             success: false,
             message: "Failed to compile system analytics balance maps."
@@ -82,11 +93,11 @@ export const getMessFinancials = async (req, res) => {
     }
 };
 
+// 3. FETCH ALL LOGGED EXPENSES
 export const getAllExpenses = async (req, res) => {
     try {
-        // Fetch all recorded expense entries, sorting by execution date descending
+        // MICROSERVICE PATTERN: Avoid Mongoose .populate() across service DB boundaries
         const expenses = await Expense.find({})
-            .populate('userId', 'firstName lastName email') // Identify which manager logged it
             .sort({ expenseDate: -1 });
 
         return res.status(200).json({
