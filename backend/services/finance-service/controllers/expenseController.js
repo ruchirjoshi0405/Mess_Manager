@@ -1,6 +1,6 @@
 import axios from "axios";
-import { Expense } from "../../../models/expenseModel.js";
-import { Payment } from "../../../models/paymentModel.js";
+import { Expense } from "../models/expenseModel.js";
+import { Payment } from "../models/paymentModel.js";
 
 // 1. LOG OPERATIONAL EXPENSE VOUCHER
 export const logExpense = async (req, res) => {

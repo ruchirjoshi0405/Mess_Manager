@@ -1,4 +1,4 @@
-import { Post } from "../../../models/postModel.js";
+import { Post } from "../models/postModel.js";
 import axios from "axios";
 
 // A. CREATE NEW BLOG/SUGGESTION POST

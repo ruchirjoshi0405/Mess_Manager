@@ -1,7 +1,7 @@
-import cloudinary from "../../../utils/cloudinary.js";
-import getDataUri from "../../../utils/dataUri.js";
-import { Menu } from "../../../models/menuModel.js";
-import { Attendance } from "../../../models/attendanceModel.js";
+import cloudinary from "../utils/cloudinary.js";
+import getDataUri from "../utils/dataUri.js";
+import { Menu } from "../models/menuModel.js";
+import { Attendance } from "../models/attendanceModel.js";
 
 // 1. ADD MEAL SLOT TO MENU
 export const addMeal = async (req, res) => {

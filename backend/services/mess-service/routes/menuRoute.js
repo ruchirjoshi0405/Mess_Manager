@@ -1,7 +1,7 @@
 import express from 'express';
 import { addMeal, deleteMeal, getMenu, getWeeklyMenuWithRatings, updateMeal } from '../controllers/menuController.js';
-import { isAuthenticated, isAuthorized } from '../../../middleware/isAuthenticated.js';
-import { multipleUpload } from '../../../middleware/multer.js';
+import { isAuthenticated, isAuthorized } from '../middleware/isAuthenticated.js';
+import { multipleUpload } from '../middleware/multer.js';
 
 const router = express.Router();
 

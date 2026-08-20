@@ -6,7 +6,7 @@ import {
     rateMealSlot,
     getHeadcount
 } from '../controllers/attendanceController.js';
-import { isAuthenticated, isAuthorized } from '../../../middleware/isAuthenticated.js';
+import { isAuthenticated, isAuthorized } from '../middleware/isAuthenticated.js';
 
 const router = express.Router();
 

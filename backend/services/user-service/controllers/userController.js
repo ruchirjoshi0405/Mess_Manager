@@ -1,16 +1,17 @@
-import { User } from "../../../models/userModel.js";
-import { Session } from "../../../models/sessionModel.js";
+import { User } from "../models/userModel.js";
+import { Session } from "../models/sessionModel.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { verifyEmail } from "../../../emailVerify/verifyEmail.js";
-import { sendOTPMail } from "../../../emailVerify/sendOTPMail.js";
-import cloudinary from "../../../utils/cloudinary.js";
-import getDataUri from "../../../utils/dataUri.js";
+import { verifyEmail } from "../utils/verifyEmail.js";
+import { sendOTPMail } from "../utils/sendOTPMail.js";
+import cloudinary from "../utils/cloudinary.js";
+import getDataUri from "../utils/dataUri.js";
+
 
 export const register = async (req, res) => {
     try {
         const { firstName, lastName, email, password, rollNumber, hostelName, roomNumber, phoneNo } = req.body;
-
+        console.log(req.body);
         if (!firstName || !lastName || !email || !password) {
             return res.status(400).json({
                 success: false,
@@ -24,8 +25,10 @@ export const register = async (req, res) => {
                 message: "User already exists"
             });
         }
+        console.log("Creating new user...");
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log("Password hashed successfully");
         const newUser = await User.create({
             firstName,
             lastName,
@@ -36,8 +39,9 @@ export const register = async (req, res) => {
             roomNumber: roomNumber || "",
             phoneNo: phoneNo || ""
         });
+        console.log("New user created:", newUser);
 
-        if(!newUser) {
+        if (!newUser) {
             return res.status(500).json({
                 success: false,
                 message: "Error creating user"
@@ -46,15 +50,15 @@ export const register = async (req, res) => {
 
         // Include role in registration token
         const token = jwt.sign(
-            { id: newUser._id, role: newUser.role }, 
-            process.env.JWT_SECRET1, 
+            { id: newUser._id, role: newUser.role },
+            process.env.JWT_SECRET1,
             { expiresIn: '10m' }
         );
-        
-        verifyEmail(token, email); 
+
+        verifyEmail(token, email);
         newUser.token = token;
         await newUser.save();
-        
+
         return res.status(201).json({
             success: true,
             message: "User registered successfully",
@@ -96,15 +100,15 @@ export const reVerify = async (req, res) => {
                 message: "User not found"
             });
         }
-        
+
         // Include role in re-verification token
         const token = jwt.sign(
-            { id: user._id, role: user.role }, 
-            process.env.JWT_SECRET1, 
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET1,
             { expiresIn: '10m' }
         );
-        
-        verifyEmail(token, email); 
+
+        verifyEmail(token, email);
         user.token = token;
         await user.save();
         return res.status(200).json({
@@ -136,16 +140,16 @@ export const login = async (req, res) => {
                 message: "User does not exist"
             });
         }
-        
+
         const isPasswordCorrect = await bcrypt.compare(password, existingUser.password);
-        if(!isPasswordCorrect) {
+        if (!isPasswordCorrect) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid Credentials"
             });
         }
-  
-        if(existingUser.isVerified === false) {
+
+        if (existingUser.isVerified === false) {
             return res.status(400).json({
                 success: false,
                 message: "Verify your account then login"
@@ -154,24 +158,24 @@ export const login = async (req, res) => {
 
         // CRITICAL UPDATE: Embedding role in both Access and Refresh Tokens
         const accessToken = jwt.sign(
-            { id: existingUser._id, role: existingUser.role }, 
-            process.env.JWT_SECRET1, 
+            { id: existingUser._id, role: existingUser.role },
+            process.env.JWT_SECRET1,
             { expiresIn: '10d' }
         );
         const refreshToken = jwt.sign(
-            { id: existingUser._id, role: existingUser.role }, 
-            process.env.JWT_SECRET2, 
+            { id: existingUser._id, role: existingUser.role },
+            process.env.JWT_SECRET2,
             { expiresIn: '30d' }
         );
 
         existingUser.isLoggedIn = true;
         await existingUser.save();
-        
+
         const existingSession = await Session.findOne({ userId: existingUser._id });
         if (existingSession) {
             await Session.deleteOne({ userId: existingUser._id });
         }
-        
+
         await Session.create({
             userId: existingUser._id
         });
@@ -212,12 +216,12 @@ export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
         const user = await User.findOne({ email });
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
-        } 
+        }
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpExpiry = new Date().getTime() + 10 * 60 * 1000;
         user.otp = otp;
@@ -225,7 +229,7 @@ export const forgotPassword = async (req, res) => {
 
         await user.save();
         await sendOTPMail(otp, email);
-        
+
         return res.status(200).json({
             success: true,
             message: "OTP sent successfully"
@@ -242,7 +246,7 @@ export const verifyOTP = async (req, res) => {
     try {
         const { otp } = req.body;
         const { email } = req.params;
-        if(!otp) {
+        if (!otp) {
             return res.status(400).json({
                 success: false,
                 message: "OTP is required"
@@ -250,26 +254,26 @@ export const verifyOTP = async (req, res) => {
         }
 
         const user = await User.findOne({ email });
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
         }
-        if(!user.otp || !user.otpExpiry) { 
+        if (!user.otp || !user.otpExpiry) {
             return res.status(400).json({
                 success: false,
                 message: "OTP is not generated or already verified"
             });
         }
 
-        if(user.otpExpiry < new Date().getTime()) {
+        if (user.otpExpiry < new Date().getTime()) {
             return res.status(400).json({
                 success: false,
                 message: "OTP is expired"
             });
         }
-        if(otp !== user.otp) {
+        if (otp !== user.otp) {
             return res.status(400).json({
                 success: false,
                 message: "OTP is incorrect"
@@ -278,7 +282,7 @@ export const verifyOTP = async (req, res) => {
         user.otp = null;
         user.otpExpiry = null;
         await user.save();
-        
+
         return res.status(200).json({
             success: true,
             message: "OTP verified successfully"
@@ -296,19 +300,19 @@ export const changePassword = async (req, res) => {
         const { newPassword, confirmPassword } = req.body;
         const { email } = req.params;
         const user = await User.findOne({ email });
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
         }
-        if(!newPassword || !confirmPassword) {
+        if (!newPassword || !confirmPassword) {
             return res.status(400).json({
                 success: false,
                 message: "All fields are necessary"
             });
         }
-        if(newPassword !== confirmPassword) {
+        if (newPassword !== confirmPassword) {
             return res.status(400).json({
                 success: false,
                 message: "Passwords do not match"
@@ -317,7 +321,7 @@ export const changePassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
         await user.save();
-        
+
         return res.status(200).json({
             success: true,
             message: "Password changed successfully"
@@ -350,7 +354,7 @@ export const getUserById = async (req, res) => {
     try {
         const { userId } = req.params;
         const user = await User.findById(userId).select("-password -otp -otpExpiry -token");
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"
@@ -372,11 +376,11 @@ export const getUserById = async (req, res) => {
 export const updateUser = async (req, res) => {
     try {
         const userIDtoUpdate = req.params.id;
-        const loggedInUser = req.user; 
-        
+        const loggedInUser = req.user;
+
         const { firstName, lastName, rollNumber, hostelName, roomNumber, phoneNo, role } = req.body;
 
-        if(loggedInUser._id.toString() !== userIDtoUpdate && loggedInUser.role !== "admin") {
+        if (loggedInUser._id.toString() !== userIDtoUpdate && loggedInUser.role !== "admin") {
             return res.status(401).json({
                 success: false,
                 message: "You are not authorized to update this profile"
@@ -384,19 +388,19 @@ export const updateUser = async (req, res) => {
         }
 
         let user = await User.findById(userIDtoUpdate);
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
         }
-        
+
         let profilePicUrl = user.profilePic;
         let profilePicPublicId = user.profilePicPublicId;
-        
+
         // Refactored Cloudinary upload using dataUri helper
-        if(req.file) {
-            if(profilePicPublicId) {
+        if (req.file) {
+            if (profilePicPublicId) {
                 await cloudinary.uploader.destroy(profilePicPublicId);
             }
             const fileUri = getDataUri(req.file);
@@ -406,7 +410,7 @@ export const updateUser = async (req, res) => {
             profilePicUrl = cloudResponse.secure_url;
             profilePicPublicId = cloudResponse.public_id;
         }
-        
+
         user.firstName = firstName || user.firstName;
         user.lastName = lastName || user.lastName;
         user.rollNumber = rollNumber || user.rollNumber;
@@ -416,7 +420,7 @@ export const updateUser = async (req, res) => {
         user.profilePic = profilePicUrl;
         user.profilePicPublicId = profilePicPublicId;
         user.role = role || user.role;
-        
+
         const updatedUser = await user.save();
         return res.status(200).json({
             success: true,
@@ -435,7 +439,7 @@ export const updateRole = async (req, res) => {
     try {
         const { userId, role } = req.body;
         const user = await User.findById(userId);
-        if(!user) {
+        if (!user) {
             return res.status(404).json({
                 success: false,
                 message: "User not found"

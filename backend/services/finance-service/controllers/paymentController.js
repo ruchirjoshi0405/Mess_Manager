@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
-import razorpayInstance from "../../../config/razorpay.js";
-import { Payment } from "../../../models/paymentModel.js";
+import razorpayInstance from "../config/razorpay.js";
+import { Payment } from "../models/paymentModel.js";
 
 // 1. INITIALIZE RAZORPAY TRANSACTION FOR MESS FEES
 export const initiateFeePayment = async (req, res) => {

@@ -1,12 +1,12 @@
 import express from 'express';
-import { isAuthenticated } from '../../../middleware/isAuthenticated.js';
+import { isAuthenticated } from '../middleware/isAuthenticated.js';
 import { 
     createPost, 
     getAllPosts, 
     toggleLikePost, 
     toggleDislikePost, 
     addCommentToPost 
-} from '../../../controllers/postController.js';
+} from '../controllers/postController.js';
 
 const router = express.Router();
 

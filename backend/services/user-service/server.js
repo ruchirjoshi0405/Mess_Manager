@@ -1,19 +1,27 @@
 import express from 'express';
-import 'dotenv/config';
-import connectDB from './database/db.js';
-import userRoute from './routes/userRoute.js';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import connectDB from './config/db.js';
+import userRoutes from './routes/userRoute.js';
+
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
-
 app.use(express.json());
+app.use(cors());
 
-// Mount User Domain Routes
-app.use('/api/v1/user', userRoute);
+app.use('/api/v1/user', userRoutes);
 
-app.get('/health', (req, res) => res.status(200).json({ service: 'User Service', status: 'UP' }));
+const PORT = process.env.PORT;
+const startServer = async () => {
+    try {
+        await connectDB();
+        app.listen(PORT, () => {
+            console.log(`👤 User Service running on port ${PORT}`);
+        });
+    } catch (error) {
+        console.error("Server startup aborted due to DB connection failure.");
+    }
+};
 
-app.listen(PORT, () => {
-    connectDB();
-    console.log(`👤 User Service running on port ${PORT}`);
-});
+startServer();

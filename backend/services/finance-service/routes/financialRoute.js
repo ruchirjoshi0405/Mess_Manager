@@ -6,13 +6,13 @@ import {
     bulkInitializeFee, 
     setIndividualStudentFee, 
     getAllStudentPaymentStatuses 
-} from '../../../controllers/paymentController.js';
+} from '../controllers/paymentController.js';
 import { 
     logExpense, 
     getMessFinancials, 
     getAllExpenses 
-} from '../../../controllers/expenseController.js';
-import { isAuthenticated, isAuthorized } from '../../../middleware/isAuthenticated.js';
+} from '../controllers/expenseController.js';
+import { isAuthenticated, isAuthorized } from '../middleware/isAuthenticated.js';
 
 const router = express.Router();
 

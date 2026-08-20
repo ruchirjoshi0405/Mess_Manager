@@ -1,30 +1,23 @@
 {
-  "name": "mess-manager-backend",
+  "name": "mess-manager-backend-gateway",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "nodemon server.js",
-    "dev": "nodemon server.js"
+    "start:gateway": "nodemon server.js",
+    "start:user": "cd services/user-service && npm run dev",
+    "start:community": "cd services/community-service && npm run dev",
+    "start:finance": "cd services/finance-service && npm run dev",
+    "start:mess": "cd services/mess-service && npm run dev",
+    "dev": "concurrently \"npm run start:gateway\" \"npm run start:user\" \"npm run start:community\" \"npm run start:finance\" \"npm run start:mess\""
   },
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "bcryptjs": "^3.0.3",
-    "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
-    "datauri": "^4.1.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-http-proxy": "^2.1.2",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.6.3",
-    "multer": "^2.2.0",
-    "nodemailer": "^9.0.1",
-    "nodemon": "^3.1.14",
-    "razorpay": "^2.9.6",
-    "react-medium-image-zoom": "^5.4.8"
+    "express-http-proxy": "^2.1.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.14"
   }
 }
