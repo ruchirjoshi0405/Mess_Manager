@@ -1,5 +1,5 @@
-import { Attendance } from "../../../models/attendanceModel.js";
-import { Menu } from "../../../models/menuModel.js";
+import { Attendance } from "../models/attendanceModel.js";
+import { Menu } from "../models/menuModel.js";
 
 // Helper function to create a clean, timezone-neutral midnight local date object
 const parseAsMidnightLocal = (dateString) => {
