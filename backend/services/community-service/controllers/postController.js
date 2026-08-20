@@ -1,13 +1,17 @@
-import { Post } from "../models/postModel.js";
+import { Post } from "../../../models/postModel.js";
+import axios from "axios";
 
 // A. CREATE NEW BLOG/SUGGESTION POST
 export const createPost = async (req, res) => {
     try {
         const { title, content } = req.body;
-        const userId = req.id; // Pulled from isAuthenticated token hook
+        const userId = req.id; // Extracted from JWT payload via isAuthenticated
 
         if (!title || !content) {
-            return res.status(400).json({ success: false, message: "Title and content strings are required fields." });
+            return res.status(400).json({ 
+                success: false, 
+                message: "Title and content strings are required fields." 
+            });
         }
 
         const newPost = await Post.create({
@@ -16,13 +20,26 @@ export const createPost = async (req, res) => {
             content
         });
 
-        // Populate details before pushing down to UI array structures
-        const populatedPost = await newPost.populate('userId', 'firstName lastName role hostelName');
+        // MICROSERVICE PATTERN: Fetch author details from User Microservice if needed
+        let authorDetails = { _id: userId };
+        try {
+            const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:5001';
+            const userRes = await axios.get(`${userServiceUrl}/api/v1/user/${userId}`);
+            if (userRes.data?.user) {
+                const { firstName, lastName, role, hostelName } = userRes.data.user;
+                authorDetails = { _id: userId, firstName, lastName, role, hostelName };
+            }
+        } catch (err) {
+            console.error("Failed to hydrate post author details:", err.message);
+        }
+
+        const postResponse = newPost.toObject();
+        postResponse.userId = authorDetails;
 
         return res.status(201).json({
             success: true,
             message: "Suggestion board voucher deployed successfully!",
-            post: populatedPost
+            post: postResponse
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -32,12 +49,14 @@ export const createPost = async (req, res) => {
 // B. READ ALL DISCUSSIONS CHRONOLOGICALLY
 export const getAllPosts = async (req, res) => {
     try {
-        const posts = await Post.find({})
-            .populate('userId', 'firstName lastName role hostelName')
-            .populate('comments.userId', 'firstName lastName role hostelName')
-            .sort({ createdAt: -1 }); // Newest suggestions flash at the top
+        // Fetch raw posts without cross-service .populate()
+        const posts = await Post.find({}).sort({ createdAt: -1 });
 
-        return res.status(200).json({ success: true, count: posts.length, posts });
+        return res.status(200).json({ 
+            success: true, 
+            count: posts.length, 
+            posts 
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -49,22 +68,23 @@ export const toggleLikePost = async (req, res) => {
         const { postId } = req.params;
         const userId = req.id;
 
-        // 1. Check current state (Read-only, no risk of overwriting arrays)
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ success: false, message: "Post data array record missing." });
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post data array record missing." });
+        }
 
         const hasLiked = post.likes.includes(userId);
         let updatedPost;
         
         if (hasLiked) {
-            // Undo like: Atomically remove the user from the likes array
+            // Undo like
             updatedPost = await Post.findByIdAndUpdate(
                 postId, 
                 { $pull: { likes: userId } },
-                { new: true } // Returns the newly updated document
+                { new: true }
             );
         } else {
-            // Upvote: Atomically add to likes (if not present) AND remove from dislikes
+            // Upvote: Add to likes and remove from dislikes
             updatedPost = await Post.findByIdAndUpdate(
                 postId, 
                 { 
@@ -75,8 +95,11 @@ export const toggleLikePost = async (req, res) => {
             );
         }
 
-        // Return the fresh arrays to sync with the React frontend state
-        return res.status(200).json({ success: true, likes: updatedPost.likes, dislikes: updatedPost.dislikes });
+        return res.status(200).json({ 
+            success: true, 
+            likes: updatedPost.likes, 
+            dislikes: updatedPost.dislikes 
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -89,7 +112,9 @@ export const toggleDislikePost = async (req, res) => {
         const userId = req.id;
 
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ success: false, message: "Post token matrix mismatch." });
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post token matrix mismatch." });
+        }
 
         const hasDisliked = post.dislikes.includes(userId);
         let updatedPost;
@@ -102,7 +127,7 @@ export const toggleDislikePost = async (req, res) => {
                 { new: true }
             );
         } else {
-            // Downvote: Atomically add to dislikes AND remove from likes
+            // Downvote: Add to dislikes and remove from likes
             updatedPost = await Post.findByIdAndUpdate(
                 postId,
                 {
@@ -113,11 +138,16 @@ export const toggleDislikePost = async (req, res) => {
             );
         }
 
-        return res.status(200).json({ success: true, likes: updatedPost.likes, dislikes: updatedPost.dislikes });
+        return res.status(200).json({ 
+            success: true, 
+            likes: updatedPost.likes, 
+            dislikes: updatedPost.dislikes 
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 };
+
 // E. COMMENT ATTACHMENT HUB
 export const addCommentToPost = async (req, res) => {
     try {
@@ -126,20 +156,22 @@ export const addCommentToPost = async (req, res) => {
         const userId = req.id;
 
         if (!text || !text.trim()) {
-            return res.status(400).json({ success: false, message: "Comment string body content cannot be empty." });
+            return res.status(400).json({ 
+                success: false, 
+                message: "Comment string body content cannot be empty." 
+            });
         }
 
         const post = await Post.findById(postId);
-        if (!post) return res.status(404).json({ success: false, message: "Post reference point dropped." });
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post reference point dropped." });
+        }
 
         const commentPayload = { userId, text: text.trim() };
         post.comments.push(commentPayload);
-        
         await post.save();
 
-        // Pull full document reference to populate nested target objects right before returning
-        const refreshedPost = await Post.findById(postId).populate('comments.userId', 'firstName lastName role hostelName');
-        const newCommentInstance = refreshedPost.comments[refreshedPost.comments.length - 1];
+        const newCommentInstance = post.comments[post.comments.length - 1];
 
         return res.status(201).json({
             success: true,
