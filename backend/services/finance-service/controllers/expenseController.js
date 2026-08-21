@@ -7,6 +7,7 @@ export const logExpense = async (req, res) => {
     try {
         const { supplierName, category, items, totalCost, paymentMethod, expenseDate } = req.body;
         const userId = req.id;
+        console.log("logExpense params:", req.body);
 
         if (!supplierName || !totalCost) {
             return res.status(400).json({
@@ -26,6 +27,8 @@ export const logExpense = async (req, res) => {
             paymentMethod,
             expenseDate: expenseDate || new Date()
         });
+
+        console.log("Expense created successfully:", newExpense);
 
         return res.status(201).json({
             success: true,

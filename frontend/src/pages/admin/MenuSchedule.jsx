@@ -6,9 +6,10 @@ import { Loader2, Utensils, Plus, Edit2, X, Check, Landmark, Star } from 'lucide
 import axios from 'axios'
 import { toast } from 'sonner'
 import { setMenu } from '@/redux/menuSlice'
+import { MESS_API_END_POINT } from '@/utils/constants'
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const MEAL_TYPES = ['Breakfast', 'Lunch', 'Snacks', 'Dinner']
+const MEAL_TYPES = ['breakfast', 'lunch', 'snacks', 'dinner']
 
 function ManageWeeklyMenu() {
     const token = localStorage.getItem('accessToken')
@@ -17,40 +18,40 @@ function ManageWeeklyMenu() {
     const { user } = useSelector(state => state.user)
     const dispatch = useDispatch()
 
-    // Two-key matrix state tracking the current active edit point ("Wednesday-Snacks")
+    // Two-key matrix state tracking the current active edit point ("Wednesday-snacks")
     const [editingKey, setEditingKey] = useState(null)
-    
+
     // Controlled parameters for the active layout modifier form
     const [inputItems, setInputItems] = useState("")
     const [inputCost, setInputCost] = useState(0)
 
     // Matrix structuring the complete week configuration state values
     const [weeklyMenu, setWeeklyMenu] = useState({
-        Monday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Tuesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Wednesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Thursday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Friday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Saturday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-        Sunday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null }
+        Monday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Tuesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Wednesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Thursday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Friday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Saturday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+        Sunday: { breakfast: null, lunch: null, snacks: null, dinner: null }
     })
 
     // 🟢 UPDATED: Pointing to the aggregate transaction route endpoint
     const fetchWeeklyMenuData = async () => {
         try {
             setLoading(true)
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/menu/getWeeklyMenuWithRatings`, {
+            const res = await axios.get(`${MESS_API_END_POINT}/getWeeklyMenuWithRatings`, {
                 headers: { Authorization: `Bearer ${token}` }
-            })
-            
+            });
+
             const baselineMatrix = {
-                Monday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Tuesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Wednesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Thursday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Friday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Saturday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Sunday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null }
+                Monday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Tuesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Wednesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Thursday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Friday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Saturday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Sunday: { breakfast: null, lunch: null, snacks: null, dinner: null }
             }
 
             if (res.data.success && res.data.menu) {
@@ -97,9 +98,9 @@ function ManageWeeklyMenu() {
             setActionLoading(currentKeyToken)
             const targetedArrayPayload = inputItems.split(',').map(i => i.trim()).filter(Boolean)
 
-            const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/menu/add`, {
+            const res = await axios.post(`${MESS_API_END_POINT}/add`, {
                 day,
-                mealType: slot,
+                mealType: slot.toLowerCase(),
                 items: targetedArrayPayload,
                 costPerPerson: Number(inputCost)
             }, {
@@ -132,7 +133,7 @@ function ManageWeeklyMenu() {
     return (
         <div className="my-20 pt-16 min-h-screen bg-gray-50 p-4 md:p-8 w-full flex flex-col items-center">
             <div className="max-w-[1600px] w-full space-y-8">
-                
+
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
@@ -145,7 +146,7 @@ function ManageWeeklyMenu() {
                 <div className="space-y-6">
                     {DAYS_OF_WEEK.map((day) => (
                         <div key={day} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5 flex flex-col lg:flex-row gap-4 lg:items-center">
-                            
+
                             <div className="lg:w-36 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-gray-100 pb-2 lg:pb-0 lg:pr-4">
                                 <h2 className="text-lg font-black text-gray-900 tracking-wide uppercase">{day}</h2>
                                 <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">4 Daily Slots</p>
@@ -158,15 +159,14 @@ function ManageWeeklyMenu() {
                                     const isEditingThisCard = editingKey === currentUniqueKey
 
                                     return (
-                                        <div 
-                                            key={slot} 
-                                            className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[155px] relative ${
-                                                isEditingThisCard 
-                                                    ? 'border-pink-300 bg-pink-50/10 shadow-inner' 
-                                                    : mealRecord 
-                                                        ? 'border-gray-100 bg-gray-50/30 hover:shadow-sm' 
-                                                        : 'border-dashed border-gray-200 bg-white' 
-                                            }`}
+                                        <div
+                                            key={slot}
+                                            className={`border rounded-xl p-4 transition-all flex flex-col justify-between min-h-[155px] relative ${isEditingThisCard
+                                                ? 'border-pink-300 bg-pink-50/10 shadow-inner'
+                                                : mealRecord
+                                                    ? 'border-gray-100 bg-gray-50/30 hover:shadow-sm'
+                                                    : 'border-dashed border-gray-200 bg-white'
+                                                }`}
                                         >
                                             <div className="flex justify-between items-center border-b border-gray-100 pb-1.5 mb-2">
                                                 <span className="text-xs font-black uppercase text-gray-500 flex items-center gap-1">
@@ -231,11 +231,11 @@ function ManageWeeklyMenu() {
                                                     <p className={`text-xs italic leading-relaxed line-clamp-2 ${mealRecord ? 'text-gray-700 font-medium' : 'text-gray-300'}`}>
                                                         {mealRecord ? `"${mealRecord.foodString}"` : "Empty Slot Setup Required"}
                                                     </p>
-                                                    
+
                                                     {mealRecord ? (
                                                         <div className="text-[10px] text-gray-400 font-bold tracking-wide mt-2 border-t border-gray-50 pt-1.5 flex justify-between items-center">
                                                             <span>EST. RATE: <span className="text-gray-700 font-black text-xs">₹{mealRecord.costPerPerson}</span></span>
-                                                            
+
                                                             {/* 🟢 NEW: Integrated Student Live Ratings Feedback Badge */}
                                                             {mealRecord.ratingCount > 0 ? (
                                                                 <span className="inline-flex items-center gap-0.5 bg-amber-50 text-amber-700 font-bold px-1.5 py-0.5 rounded border border-amber-100 text-[9px]">
@@ -247,7 +247,7 @@ function ManageWeeklyMenu() {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <button 
+                                                        <button
                                                             onClick={() => startInlineEditing(day, slot, mealRecord)}
                                                             className="text-[10px] text-left text-pink-500 font-bold hover:text-pink-700 transition-colors mt-2 cursor-pointer inline-flex items-center gap-0.5"
                                                         >

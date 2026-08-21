@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Loader2, MessageSquare, ThumbsUp, ThumbsDown, Send, User, Megaphone, Plus, X, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { COMMUNITY_API_END_POINT } from '@/utils/constants';
 
 function Home() {
   const accessToken = localStorage.getItem('accessToken');
@@ -35,7 +36,7 @@ function Home() {
   const fetchTimelineFeed = async () => {
     try {
       setFeedLoading(true)
-      const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/community/all`)
+      const res = await axios.get(`${COMMUNITY_API_END_POINT}/all`);
       if (res.data.success) {
         setPosts(res.data.posts)
       }
@@ -50,7 +51,7 @@ function Home() {
   }
 
   useEffect(() => {
-    fetchTimelineFeed(), handleToggleDislike(), handleToggleLike()
+    fetchTimelineFeed()
   }, [accessToken])
 
   const handlePublishPost = async (e) => {
@@ -62,12 +63,12 @@ function Home() {
 
     try {
       setActionLoading(true)
-      const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/community/create`, {
+      const res = await axios.post(`${COMMUNITY_API_END_POINT}/create`, {
         title: title.trim(),
         content: content.trim()
       }, {
         headers: { Authorization: `Bearer ${accessToken}` }
-      })
+      });
 
       if (res.data.success) {
         toast.success("Suggestion pinned to community wall successfully!")
@@ -86,9 +87,9 @@ function Home() {
   // 🟢 FIXED UPVOTE ENGAGEMENT STATE HANDLER
   const handleToggleLike = async (postId) => {
     try {
-      const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/like`, {}, {
+      const res = await axios.put(`${COMMUNITY_API_END_POINT}/${postId}/like`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
-      })
+      });
       if (res.data.success) {
         setPosts(prev => prev.map(p => {
           if (p._id === postId) {
@@ -110,9 +111,9 @@ function Home() {
   // 🟢 FIXED DOWNVOTE ENGAGEMENT STATE HANDLER
   const handleToggleDislike = async (postId) => {
     try {
-      const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/dislike`, {}, {
+      const res = await axios.put(`${COMMUNITY_API_END_POINT}/${postId}/dislike`, {}, {
         headers: { Authorization: `Bearer ${accessToken}` }
-      })
+      });
       if (res.data.success) {
         setPosts(prev => prev.map(p => {
           if (p._id === postId) {
@@ -136,11 +137,11 @@ function Home() {
     if (!commentInput.trim()) return
 
     try {
-      const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/community/${postId}/comment`, {
+      const res = await axios.post(`${COMMUNITY_API_END_POINT}/${postId}/comment`, {
         text: commentInput.trim()
       }, {
         headers: { Authorization: `Bearer ${accessToken}` }
-      })
+      });
 
       if (res.data.success) {
         toast.success("Comment logged successfully!")

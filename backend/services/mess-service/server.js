@@ -15,8 +15,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Mount Microservice Routes
-app.use('/api/v1/mess/menu', menuRoute);
-app.use('/api/v1/mess/attendance', attendanceRoute);
+app.use('/api/v1/menu', menuRoute);
+app.use('/api/v1/attendance', attendanceRoute);
 
 const PORT = process.env.PORT || 5004;
 

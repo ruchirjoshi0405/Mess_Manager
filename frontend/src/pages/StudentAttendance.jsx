@@ -6,6 +6,7 @@ import { Loader2, Utensils, CheckCircle, XCircle, Calendar, Lock, Star, Calendar
 import axios from 'axios'
 import { toast } from 'sonner'
 import { setAttendance, setMenu } from '@/redux/menuSlice'
+import { MESS_API_END_POINT, ATTENDANCE_API_END_POINT } from '@/utils/constants'
 
 const MEAL_CUTOFF_HOURS = {
     Breakfast: 8,  // 8:00 AM
@@ -46,9 +47,10 @@ function StudentAttendance() {
         setIsMenuModalOpen(true)
         try {
             setMenuLoading(true)
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/menu/getMenu`, {
+
+            const res = await axios.get(`${MESS_API_END_POINT}/getMenu`, {
                 headers: { Authorization: `Bearer ${token}` }
-            })
+            });
 
             const baselineMatrix = {
                 Monday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
@@ -114,10 +116,10 @@ function StudentAttendance() {
     const fetchDailyData = async (targetDate) => {
         try {
             setLoading(true)
-            const menuRes = await axios.get(`${import.meta.env.VITE_URL}/api/v1/menu/getMenu?date=${targetDate}`, {
+            const menuRes = await axios.get(`${MESS_API_END_POINT}/getMenu?date=${targetDate}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
-            const attendanceRes = await axios.get(`${import.meta.env.VITE_URL}/api/v1/attendance/view?date=${targetDate}`, {
+            const attendanceRes = await axios.get(`${ATTENDANCE_API_END_POINT}/view?date=${targetDate}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
 
@@ -173,7 +175,7 @@ function StudentAttendance() {
         try {
             setActionLoading(mealSlot)
             const targetStatus = !meals[mealSlot].eating
-            const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/attendance/update-meal`, {
+            const res = await axios.put(`${ATTENDANCE_API_END_POINT}/update-meal`, {
                 date,
                 mealType: mealSlot,
                 status: targetStatus ? 'eating' : 'skipping'
@@ -194,7 +196,8 @@ function StudentAttendance() {
 
     const handleRateMeal = async (mealSlot, ratingValue) => {
         try {
-            const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/attendance/rate-meal`, {
+            console.log({ date, mealType: mealSlot.toLowerCase(), rating: ratingValue });
+            const res = await axios.put(`${ATTENDANCE_API_END_POINT}/rate-meal`, {
                 date,
                 mealType: mealSlot.toLowerCase(),
                 rating: ratingValue
@@ -215,7 +218,7 @@ function StudentAttendance() {
         try {
             setLoading(true)
             const targetLeaveStatus = !isFullDayLeave
-            const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/attendance/toggle-leave`, {
+            const res = await axios.put(`${ATTENDANCE_API_END_POINT}/toggle-leave`, {
                 date,
                 isOnLeave: targetLeaveStatus
             }, {

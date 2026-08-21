@@ -160,6 +160,7 @@ export const toggleDayLeave = async (req, res) => {
 // 4. SUBMIT STAR RATING FEEDBACK FOR AN INDIVIDUAL MEAL SLOT
 export const rateMealSlot = async (req, res) => {
     try {
+        console.log(req.body);
         const userId = req.id;
         const { date, mealType, rating } = req.body;
 

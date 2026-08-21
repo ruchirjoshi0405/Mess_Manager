@@ -11,6 +11,7 @@ import userLogo from '@/assets/User.png'
 import { toast } from 'sonner'
 import { setUser } from '@/redux/userSlice'
 import axios from 'axios'
+import { USER_API_END_POINT } from '@/utils/constants'
 
 const Profile = () => {
     const [loading, setLoading] = useState(false)
@@ -38,9 +39,9 @@ const Profile = () => {
         const selectedFile = e.target.files[0];
         if (!selectedFile) return; // Guard clause in case they cancel the file picker
 
-        
+
         setFile(selectedFile);
-        
+
         const previewUrl = URL.createObjectURL(selectedFile);
 
         setUpdatedUser({
@@ -69,21 +70,24 @@ const Profile = () => {
                 formData.append("file", file); // image file for backend multer
             }
             const res = await axios.put(
-                `http://localhost:8000/api/v1/user/update/${userId}`, formData, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
+                `${USER_API_END_POINT}/update/${userId} `,
+                formData,
+                {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                }
             );
 
             if (res.data.success) {
+                console.log("Profile updated successfully:", res.data.user);
                 toast.success(res.data.message || 'Profile updated successfully!');
                 dispatch(setUser(res.data.user));
             }
         } catch (error) {
             console.log(error);
             toast.error(error.response?.data?.message);
-        } finally{
+        } finally {
             setLoading(false)
         }
     }
@@ -217,7 +221,7 @@ const Profile = () => {
 
                                 {/* Submit Trigger Execution */}
                                 <Button type='submit' className='w-full mt-4 bg-pink-600 hover:bg-pink-700 text-white font-semibold py-2.5 rounded-lg shadow-md transition-colors'>
-                                    {loading ? <><Loader2 className='h-4 animate-spin mr-2'/>Please Wait</> : 'Update Profile'}
+                                    {loading ? <><Loader2 className='h-4 animate-spin mr-2' />Please Wait</> : 'Update Profile'}
                                 </Button>
 
                             </form>

@@ -6,6 +6,7 @@ import { verifyEmail } from "../utils/verifyEmail.js";
 import { sendOTPMail } from "../utils/sendOTPMail.js";
 import cloudinary from "../utils/cloudinary.js";
 import getDataUri from "../utils/dataUri.js";
+import streamifier from 'streamifier';
 
 
 export const register = async (req, res) => {
@@ -155,7 +156,7 @@ export const login = async (req, res) => {
                 message: "Verify your account then login"
             });
         }
-
+        
         // CRITICAL UPDATE: Embedding role in both Access and Refresh Tokens
         const accessToken = jwt.sign(
             { id: existingUser._id, role: existingUser.role },
@@ -179,7 +180,7 @@ export const login = async (req, res) => {
         await Session.create({
             userId: existingUser._id
         });
-
+        
         return res.status(200).json({
             success: true,
             message: "Welcome back " + existingUser.firstName,
@@ -190,7 +191,7 @@ export const login = async (req, res) => {
     } catch (error) {
         return res.status(500).json({
             success: false,
-            message: "Internal server error"
+            message: "Internal server erro"
         });
     }
 };
@@ -378,7 +379,7 @@ export const updateUser = async (req, res) => {
         const userIDtoUpdate = req.params.id;
         const loggedInUser = req.user;
 
-        const { firstName, lastName, rollNumber, hostelName, roomNumber, phoneNo, role } = req.body;
+        const { firstName, lastName, phoneNo, address, city, zipcode, role } = req.body;
 
         if (loggedInUser._id.toString() !== userIDtoUpdate && loggedInUser.role !== "admin") {
             return res.status(401).json({
@@ -398,36 +399,63 @@ export const updateUser = async (req, res) => {
         let profilePicUrl = user.profilePic;
         let profilePicPublicId = user.profilePicPublicId;
 
-        // Refactored Cloudinary upload using dataUri helper
+        // Upload via streamifier
         if (req.file) {
             if (profilePicPublicId) {
                 await cloudinary.uploader.destroy(profilePicPublicId);
             }
-            const fileUri = getDataUri(req.file);
-            const cloudResponse = await cloudinary.uploader.upload(fileUri.content, {
-                folder: "profiles"
-            });
-            profilePicUrl = cloudResponse.secure_url;
-            profilePicPublicId = cloudResponse.public_id;
+
+            const streamUpload = (fileBuffer) => {
+                return new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { folder: "profiles" },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(fileBuffer).pipe(stream);
+                });
+            };
+
+            try {
+                const cloudResponse = await streamUpload(req.file.buffer);
+                profilePicUrl = cloudResponse.secure_url;
+                profilePicPublicId = cloudResponse.public_id;
+            } catch (uploadErr) {
+                console.error("Cloudinary Stream Error:", uploadErr);
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to upload profile picture"
+                });
+            }
         }
 
-        user.firstName = firstName || user.firstName;
-        user.lastName = lastName || user.lastName;
-        user.rollNumber = rollNumber || user.rollNumber;
-        user.hostelName = hostelName || user.hostelName;
-        user.roomNumber = roomNumber || user.roomNumber;
-        user.phoneNo = phoneNo || user.phoneNo;
+        // Update fields
+        user.firstName = firstName ?? user.firstName;
+        user.lastName = lastName ?? user.lastName;
+        user.phoneNo = phoneNo ?? user.phoneNo;
+        user.address = address ?? user.address;
+        user.city = city ?? user.city;
+        user.zipcode = zipcode ?? user.zipcode;
         user.profilePic = profilePicUrl;
         user.profilePicPublicId = profilePicPublicId;
-        user.role = role || user.role;
+
+        if (role && loggedInUser.role === 'admin') {
+            user.role = role;
+        }
 
         const updatedUser = await user.save();
+        const userResponse = updatedUser.toObject();
+        delete userResponse.password;
+
         return res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            user: updatedUser
+            user: userResponse
         });
     } catch (error) {
+        console.error("Update User Error:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"

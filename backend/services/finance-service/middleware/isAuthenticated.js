@@ -48,6 +48,7 @@ export const isAuthenticated = async (req, res, next) => {
 
 export const isAuthorized = (allowedRoles) => {
     return (req, res, next) => {
+        console.log("isAuthorized: ", req.user);
         if (req.user && allowedRoles.includes(req.user.role)) {
             next();
         } else {

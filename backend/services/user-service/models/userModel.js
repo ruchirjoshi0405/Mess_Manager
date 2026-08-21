@@ -49,6 +49,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    address: {
+        type: String,
+        default: ""
+    },
     token: {
         type: String,
         default: null
@@ -68,7 +72,15 @@ const userSchema = new mongoose.Schema({
     otpExpiry: {
         type: Date,
         default: null
-    }
+    },
+    city: {
+        type: String,
+        default: ""
+    },
+    zipcode: {
+        type: String,
+        default: ""
+    },
 }, { timestamps: true });
 
 export const User = mongoose.model('User', userSchema);

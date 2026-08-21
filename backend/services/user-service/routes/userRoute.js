@@ -32,7 +32,7 @@ router.post('/verify', isAuthenticated, verify);
 router.post('/logout', isAuthenticated, logout);
 
 // Profile & Role Management Endpoints
-router.put('/update-user/:id', isAuthenticated, singleUpload, updateUser);
+router.put('/update/:id', isAuthenticated, singleUpload, updateUser);
 router.put('/update-role', isAuthenticated, updateRole);
 
 // RBAC Protected Admin Endpoints

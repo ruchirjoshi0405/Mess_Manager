@@ -17,6 +17,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { useDispatch } from 'react-redux'
 import { setUser } from '@/redux/userSlice'
+import { USER_API_END_POINT } from '@/utils/constants'
 
 function Login() {
     const [showPassword, setShowPassword] = React.useState(false)
@@ -41,12 +42,13 @@ function Login() {
         try {
             setLoading(true)
             // FIXED: Using dynamic environment URL configuration
-            const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/user/login`, formData, {
+            console.log(`${USER_API_END_POINT}/login`);
+            const res = await axios.post(`${USER_API_END_POINT}/login`, formData, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-            })
-            if(res.data.success) {
+            });
+            if (res.data.success) {
                 navigate('/')
                 dispatch(setUser(res.data.user))
                 localStorage.setItem('accessToken', res.data.accessToken)
@@ -96,7 +98,7 @@ function Login() {
                                     placeholder="••••••••"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    required 
+                                    required
                                     className="pr-10 bg-white w-full"
                                 />
                                 {/* FIXED: Re-positioned the eye click button securely inside the frame layout */}
@@ -109,13 +111,13 @@ function Login() {
                                 </div>
                             </div>
                         </div>
-                        
-                        <Button 
-                            type="submit" 
+
+                        <Button
+                            type="submit"
                             className="w-full bg-pink-600 text-white hover:bg-pink-700 transition-colors mt-2"
                             disabled={loading}
                         >
-                            {loading ? <><Loader2 className='h-4 w-4 animate-spin mr-2'/>Please Wait</> : 'Login'}
+                            {loading ? <><Loader2 className='h-4 w-4 animate-spin mr-2' />Please Wait</> : 'Login'}
                         </Button>
                     </form>
                 </CardContent>

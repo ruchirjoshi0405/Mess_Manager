@@ -8,6 +8,7 @@ import { clearMenuState } from '@/redux/menuSlice' // Updated import to clear ou
 import axios from 'axios'
 import { toast } from 'sonner'
 import logo from '../assets/MNNIT_logo.png'
+import { USER_API_END_POINT } from '@/utils/constants'
 
 function Navbar() {
   const { user } = useSelector(store => store.user);
@@ -24,7 +25,7 @@ function Navbar() {
     try {
       // Dynamic VITE_URL mapping (matches your login setup)
       const res = await axios.post(
-        `${import.meta.env.VITE_URL || 'http://localhost:8000'}/api/v1/user/logout`,
+        `${USER_API_END_POINT}/logout`,
         {},
         {
           headers: {
@@ -32,8 +33,10 @@ function Navbar() {
           },
         }
       );
+      console.log('Logout response:', res.data); // Debugging line
 
       if (res.data.success) {
+        console.log('Logout successful:', res.data.message);
         localStorage.removeItem('accessToken');
         dispatch(clearMenuState()); // Wipes the daily calendar/attendance data safely
         dispatch(setUser(null));

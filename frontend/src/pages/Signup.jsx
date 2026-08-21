@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { EyeOff, Eye, Loader2 } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'sonner'
+import { USER_API_END_POINT } from '@/utils/constants'
 
 
 function Signup() {
@@ -46,12 +47,13 @@ function Signup() {
         try {
             setLoading(true)
             // Points cleanly to your modular port v1 user path
-            const res = await axios.post(`http://localhost:8000/api/v1/user/register`, formData, {
+            const res = await axios.post(`${USER_API_END_POINT}/register`, formData, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-            })
-            if(res.data.success) {
+                //withCredentials: true,
+            });
+            if (res.data.success) {
                 navigate('/verify')
                 toast.success(res.data.message)
             }
@@ -183,7 +185,7 @@ function Signup() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         className="pr-10"
-                                        required 
+                                        required
                                     />
                                     {showPassword ? (
                                         <EyeOff onClick={() => setShowPassword(false)} className='w-5 h-5 text-gray-500 absolute right-3 cursor-pointer select-none' />
@@ -196,15 +198,15 @@ function Signup() {
                     </form>
                 </CardContent>
                 <CardFooter className="flex-col gap-2">
-                    <Button 
-                        onClick={submitHandler} 
-                        type="submit" 
+                    <Button
+                        onClick={submitHandler}
+                        type="submit"
                         className="w-full cursor-pointer"
                         disabled={loading}
                     >
-                        {loading ? <><Loader2 className='h-4 animate-spin mr-2'/>Please Wait</> : 'Signup'}
+                        {loading ? <><Loader2 className='h-4 animate-spin mr-2' />Please Wait</> : 'Signup'}
                     </Button>
-                    <p className="text-gray-700 text-sm"> 
+                    <p className="text-gray-700 text-sm">
                         Already have an account? <Link to={'/login'} className="hover:underline cursor-pointer text-pink-800 font-medium">Login</Link>
                     </p>
                 </CardFooter>

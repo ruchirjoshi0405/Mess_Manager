@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Loader2, Receipt, Plus, X, Calendar, Wallet, ShoppingBag, Landmark, History, FileText } from 'lucide-react'
 import { toast } from 'sonner'
+import { FINANCE_API_END_POINT } from '@/utils/constants'
 
 const EXPENSE_CATEGORIES = ["Groceries", "Salaries", "Utilities", "Gas", "Maintenance", "Other"]
 const PAYMENT_METHODS = ["Cash", "UPI", "Bank Transfer", "Cheque"]
@@ -19,7 +20,7 @@ function AddExpense() {
     const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0])
     const [totalCost, setTotalCost] = useState("")
     const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0])
-    
+
     // Line items inventory inputs
     const [itemName, setItemName] = useState("")
     const [quantity, setQuantity] = useState("")
@@ -30,7 +31,7 @@ function AddExpense() {
     const fetchExpenseHistory = async () => {
         try {
             setHistoryLoading(true)
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/finance/expense/all`, {
+            const res = await axios.get(`${FINANCE_API_END_POINT}/expense/all`, {
                 headers: { Authorization: `Bearer ${accessToken}` }
             })
             if (res.data.success) {
@@ -72,10 +73,12 @@ function AddExpense() {
             toast.error("Please fill in all core voucher parameters correctly.")
             return
         }
-
+        console.log("items: ", itemsList);
         try {
             setLoading(true)
-            const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/finance/expense/log`, {
+            console.log("items:as ", itemsList);
+            console.log(`${FINANCE_API_END_POINT}/expense/log`);
+            const res = await axios.post(`${FINANCE_API_END_POINT}/expense/log`, {
                 supplierName: supplierName.trim(),
                 category,
                 items: itemsList,
@@ -106,7 +109,7 @@ function AddExpense() {
 
     return (
         <div className="w-full max-w-7xl py-24 mx-auto p-6 min-h-screen bg-gray-50 flex flex-col gap-6">
-            
+
             {/* Master Header */}
             <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
                 <div className="p-2.5 bg-pink-600 rounded-2xl text-white shadow-sm shadow-pink-200">
@@ -120,7 +123,7 @@ function AddExpense() {
 
             {/* Split screen content structure */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-                
+
                 {/* LHS PANEL: CORE ENTRY FORM CONTAINER BLOCK (60% / 7 Columns) */}
                 <form onSubmit={handleSubmitExpense} className="lg:col-span-7 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
                     <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest flex items-center gap-1.5 pb-2 border-b border-gray-50">
@@ -196,7 +199,7 @@ function AddExpense() {
                         <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest flex items-center gap-1">
                             <ShoppingBag className="w-3.5 h-3.5" /> Itemized Invoice Breakdown
                         </span>
-                        
+
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
                             <input
                                 type="text"
@@ -221,7 +224,7 @@ function AddExpense() {
                                     {INVENTORY_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                 </select>
                             </div>
-                            
+
                             <button
                                 type="button"
                                 onClick={handleAddItem}
@@ -237,8 +240,8 @@ function AddExpense() {
                                 <span className="text-[11px] text-gray-400 italic px-1">No explicit tags appended to current voucher.</span>
                             ) : (
                                 itemsList.map((item, idx) => (
-                                    <span 
-                                        key={idx} 
+                                    <span
+                                        key={idx}
                                         className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold bg-pink-50 text-pink-800 border border-pink-100 rounded-lg"
                                     >
                                         {`${item.itemName} (${item.quantity} ${item.unit})`}
@@ -279,8 +282,8 @@ function AddExpense() {
                             </div>
                         ) : (
                             expenseHistory.map((exp) => (
-                                <div 
-                                    key={exp._id} 
+                                <div
+                                    key={exp._id}
                                     className="p-3.5 bg-gray-50 hover:bg-pink-50/10 border border-gray-100 rounded-xl flex flex-col gap-2 transition-all shadow-sm"
                                 >
                                     <div className="flex items-center justify-between">
