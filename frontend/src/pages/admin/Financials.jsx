@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FINANCE_API_END_POINT } from '@/utils/constants'
 import axios from 'axios'
 import { AreaChart as ChartIcon, Users, Utensils, Receipt, IndianRupee, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
@@ -17,7 +18,7 @@ const Financials = () => {
   const fetchStats = async () => {
     const accessToken = localStorage.getItem('accessToken')
     try {
-      const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/finance/dashboard/analytics`, {
+      const res = await axios.get(`${FINANCE_API_END_POINT}/dashboard/analytics`, {
         headers: {
           Authorization: `Bearer ${accessToken}`
         }
@@ -116,7 +117,7 @@ const Financials = () => {
                   dx={-10}
                   tickFormatter={(val) => `₹${val}`}
                 />
-                
+
                 <Tooltip
                   formatter={(value) => [`₹${value.toLocaleString("en-IN")}`, 'Amount Collected']}
                   contentStyle={{ background: '#111827', border: 'none', borderRadius: '12px', color: '#fff' }}

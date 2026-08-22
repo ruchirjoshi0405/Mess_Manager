@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Loader2, GraduationCap, Building2, Landmark, Coins, CheckCircle2, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, GraduationCap, CalendarRange, Landmark, Coins, CheckCircle2, XCircle, AlertCircle, RefreshCw, Building2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { FINANCE_API_END_POINT, USER_API_END_POINT } from '@/utils/constants'
 
 function StudentRoster() {
     const accessToken = localStorage.getItem('accessToken')
@@ -15,19 +16,18 @@ function StudentRoster() {
     const [bulkSession, setBulkSession] = useState("Semester-1 (July-Dec)")
     const [actionLoading, setActionLoading] = useState(false)
 
-    // 🟢 NEW: State tracking payment documents mapped by student userId keys
+    // State tracking payment documents mapped by student userId keys
     const [paymentStatuses, setPaymentStatuses] = useState({})
 
     // Fetch payment ledger records for the specified window session period
     const fetchPaymentLedgerState = async (sessionTag) => {
         try {
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/finance/fee/allStatuses?sessionOrMonth=${sessionTag}`, {
+            const res = await axios.get(`${FINANCE_API_END_POINT}/fee/allStatuses?sessionOrMonth=${sessionTag}`, {
                 headers: { Authorization: `Bearer ${accessToken}` }
             })
             if (res.data.success) {
                 const statusMap = {}
                 res.data.payments.forEach(payment => {
-                    console.log(payment);
                     statusMap[payment.userId] = payment
                 })
                 setPaymentStatuses(statusMap)
@@ -40,12 +40,11 @@ function StudentRoster() {
     const fetchStudents = async () => {
         try {
             setLoading(true)
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/user/allUsers`, {
+            const res = await axios.get(`${USER_API_END_POINT}/allUsers`, {
                 headers: { Authorization: `Bearer ${accessToken}` }
             })
             if (res.data.success) {
                 setStudents(res.data.users)
-                // 🟢 NEW: Load payment records alongside student accounts
                 await fetchPaymentLedgerState(bulkSession)
             }
         } catch (error) {
@@ -63,8 +62,7 @@ function StudentRoster() {
     const handleRoleChange = async (userId, targetRole) => {
         try {
             setUpdatingUserId(userId)
-            console.log(userId, targetRole);
-            const res = await axios.put(`${import.meta.env.VITE_URL}/api/v1/user/update-role`, {
+            const res = await axios.put(`${USER_API_END_POINT}/update-role`, {
                 userId,
                 role: targetRole
             }, {
@@ -83,11 +81,10 @@ function StudentRoster() {
         }
     }
 
-    // 🟢 NEW: Handler to amend or initialize an individual student's fee ledger status
     const handleIndividualFeeChange = async (userId, targetStatus) => {
         try {
             setUpdatingUserId(userId)
-            const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/finance/fee/individualAllocate`, {
+            const res = await axios.post(`${FINANCE_API_END_POINT}/fee/individualAllocate`, {
                 userId,
                 amount: bulkAmount,
                 sessionOrMonth: bulkSession,
@@ -98,7 +95,6 @@ function StudentRoster() {
 
             if (res.data.success) {
                 toast.success("Student payment record amended independently!")
-                // Dynamically update the local payment dictionary object mapper state
                 setPaymentStatuses(prev => ({
                     ...prev,
                     [userId]: res.data.payment
@@ -121,7 +117,7 @@ function StudentRoster() {
 
         try {
             setActionLoading(true)
-            const res = await axios.post(`${import.meta.env.VITE_URL}/api/v1/finance/fee/bulkFee`, {
+            const res = await axios.post(`${FINANCE_API_END_POINT}/fee/bulkFee`, {
                 amount: bulkAmount,
                 sessionOrMonth: bulkSession
             }, {
@@ -131,7 +127,6 @@ function StudentRoster() {
             if (res.data.success) {
                 toast.success(res.data.message || "Bulk ledger update succeeded!")
                 setIsBulkFormOpen(false)
-                // Refresh full tracking dictionary array map states
                 await fetchPaymentLedgerState(bulkSession)
             }
         } catch (error) {
@@ -157,7 +152,7 @@ function StudentRoster() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-gray-100 pb-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900">Hosteller Master Roster</h1>
-                    <p className="text-gray-500 text-sm mt-1">Audit profile configurations, hostel room allotments, and platform access clearance metrics.</p>
+                    <p className="text-gray-500 text-sm mt-1">Audit profile configurations, hostel room allotments, and active billing cycles.</p>
                 </div>
 
                 <button
@@ -198,10 +193,10 @@ function StudentRoster() {
                                 value={bulkSession}
                                 onChange={(e) => {
                                     setBulkSession(e.target.value)
-                                    fetchPaymentLedgerState(e.target.value) // Dynamic status matching string update pivots
+                                    fetchPaymentLedgerState(e.target.value)
                                 }}
                                 className="bg-white border border-gray-200 px-3 py-2 text-sm rounded-xl outline-none focus:border-pink-500 font-semibold"
-                                placeholder="e.g. Semester-1 (July-Dec)"
+                                placeholder="e.g. 2026 Jun-Dec"
                             />
                         </div>
                         <div className="flex items-center gap-2">
@@ -228,22 +223,19 @@ function StudentRoster() {
                 <p className="text-center text-sm text-gray-400 italic py-20 bg-white rounded-2xl border border-gray-100">No registered profiles found.</p>
             ) : (
                 <div className="w-full overflow-x-auto rounded-2xl border border-gray-100 shadow-sm bg-white">
-                    {/* Width expanded style adaptation to securely anchor the financial segment column block */}
                     <table className="w-full min-w-[1100px] text-left text-sm">
                         <thead className="bg-gray-50 border-b border-gray-100 text-gray-700">
                             <tr>
                                 <th className="px-6 py-4 font-bold">Student Name</th>
                                 <th className="px-6 py-4 font-bold flex items-center gap-1"><GraduationCap className="w-4 h-4 text-gray-400" /> Roll Details</th>
-                                <th className="px-6 py-4 font-bold"><Building2 className="w-4 h-4 text-gray-400 inline mr-1" /> Room Details</th>
-                                {/* 🟢 NEW: Header Segment anchor for Financial Tracker tracking data */}
+                                <th className="px-6 py-4 font-bold"><Building2 className="w-4 h-4 text-gray-400 inline mr-1" /> Hostel Details</th>
+                                <th className="px-6 py-4 font-bold"><CalendarRange className="w-4 h-4 text-gray-400 inline mr-1" /> Fee Cycle</th>
                                 <th className="px-6 py-4 font-bold">Fee Tracking State / Override</th>
                                 <th className="px-6 py-4 font-bold">System Role</th>
-                                <th className="px-6 py-4 font-bold text-center">Manage</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50 text-gray-600 bg-white">
                             {students?.map((student) => {
-                                // Extract payment instance for individual student matching row loop ID
                                 const paymentRecord = paymentStatuses[student._id]
 
                                 return (
@@ -257,6 +249,8 @@ function StudentRoster() {
                                         <td className="px-6 py-4 font-mono text-xs font-semibold text-gray-700">
                                             {student.rollNumber || "N/A"}
                                         </td>
+                                        
+                                        {/* Hostel Column */}
                                         <td className="px-6 py-4">
                                             {student.hostelName ? (
                                                 <div>
@@ -264,15 +258,19 @@ function StudentRoster() {
                                                     <span className="text-[11px] text-gray-400 block">Room: {student.roomNumber || "Unassigned"}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-gray-400 italic">No Room Allotted</span>
+                                                <span className="text-xs text-gray-400 italic">Unassigned</span>
                                             )}
                                         </td>
 
-                                        {/* 🟢 NEW: Dynamic Financial Column Element with Inline Dropdown Action Controls */}
-                                        {/* Replace the <td> containing your dynamic financial status column with this exact aligned version: */}
+                                        {/* Fee Cycle Column */}
+                                        <td className="px-6 py-4">
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                                                {paymentRecord?.sessionOrMonth || bulkSession}
+                                            </span>
+                                        </td>
+
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                {/* Visual Badge Display aligned with explicit Schema Enums */}
                                                 {!paymentRecord || paymentRecord.status === "Unpaid" ? (
                                                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-400 border border-blue-200">
                                                         <AlertCircle className="w-3 h-3" /> Unpaid
@@ -291,45 +289,46 @@ function StudentRoster() {
                                                     </span>
                                                 )}
 
-                                                {/* Individual Option Selection controls matched to backend configuration criteria */}
-                                                {!paymentRecord.razorpayPaymentId && <select
-                                                    value={paymentRecord ? paymentRecord.status : "None"}
-                                                    disabled={updatingUserId === student._id}
-                                                    onChange={(e) => {
-                                                        if (e.target.value === "None") return
-                                                        console.log(e.target.value);
-                                                        handleIndividualFeeChange(student._id, e.target.value)
-                                                    }}
-                                                    className="bg-white border border-gray-200 text-[10px] font-bold text-gray-500 rounded-md px-1.5 py-0.5 focus:outline-none cursor-pointer disabled:opacity-50"
-                                                >
-                                                    <option value="None" disabled>Action Override</option>
-                                                    <option value="Unpaid">Set Demand Unpaid</option>
-                                                    <option value="Paid">Mark Settled (Offline/Cash)</option>
-                                                </select>}
+                                                {!paymentRecord?.razorpayPaymentId && (
+                                                    <select
+                                                        value={paymentRecord ? paymentRecord.status : "None"}
+                                                        disabled={updatingUserId === student._id}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === "None") return
+                                                            handleIndividualFeeChange(student._id, e.target.value)
+                                                        }}
+                                                        className="bg-white border border-gray-200 text-[10px] font-bold text-gray-500 rounded-md px-1.5 py-0.5 focus:outline-none cursor-pointer disabled:opacity-50"
+                                                    >
+                                                        <option value="None" disabled>Action Override</option>
+                                                        <option value="Unpaid">Set Demand Unpaid</option>
+                                                        <option value="Paid">Mark Settled (Offline/Cash)</option>
+                                                    </select>
+                                                )}
                                             </div>
                                         </td>
 
+                                        {/* Combined System Role & Change Selector Column */}
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold 
-                                            ${student.role === 'admin'
-                                                    ? 'bg-red-50 text-red-700 border border-red-100'
-                                                    : student.role === 'mess_manager'
-                                                        ? 'bg-purple-50 text-purple-700 border border-purple-100'
-                                                        : 'bg-blue-50 text-blue-700 border border-blue-100'
-                                                }`}>
-                                                {student.role === 'mess_manager' ? 'Mess Manager' : student.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <select
-                                                value={student.role}
-                                                disabled={updatingUserId === student._id}
-                                                onChange={(e) => handleRoleChange(student._id, e.target.value)}
-                                                className="bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer disabled:opacity-50"
-                                            >
-                                                <option value="student">Student</option>
-                                                <option value="mess_manager">Mess Manager</option>
-                                            </select>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold 
+                                                    ${student.role === 'admin'
+                                                        ? 'bg-red-50 text-red-700 border border-red-100'
+                                                        : student.role === 'mess_manager'
+                                                            ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                                                            : 'bg-blue-50 text-blue-700 border border-blue-100'
+                                                    }`}>
+                                                    {student.role === 'mess_manager' ? 'Mess Manager' : student.role}
+                                                </span>
+                                                <select
+                                                    value={student.role}
+                                                    disabled={updatingUserId === student._id}
+                                                    onChange={(e) => handleRoleChange(student._id, e.target.value)}
+                                                    className="bg-white border border-gray-200 text-[11px] font-semibold text-gray-600 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-pink-500 cursor-pointer disabled:opacity-50"
+                                                >
+                                                    <option value="student">Student</option>
+                                                    <option value="mess_manager">Mess Manager</option>
+                                                </select>
+                                            </div>
                                         </td>
                                     </tr>
                                 )

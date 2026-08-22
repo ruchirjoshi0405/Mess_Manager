@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Utensils, Users, XCircle, Calendar, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { ATTENDANCE_API_END_POINT } from '@/utils/constants';
 
 const Headcounts = () => {
   const [headcounts, setHeadcounts] = useState({
@@ -19,14 +20,14 @@ const Headcounts = () => {
     try {
       setLoading(true);
       // Calls your new attendance analytics summary endpoint
-      const { data } = await axios.get(`${import.meta.env.VITE_URL}/api/v1/attendance/headcount?date=${date}`, {
+      const { data } = await axios.get(`${ATTENDANCE_API_END_POINT}/headcount?date=${date}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      
+
       if (data.success) {
         console.log("data.headcounts:", data.headcounts);
         setHeadcounts(data.headcounts);
-        
+
       }
     } catch (error) {
       console.error("❌ Failed to fetch meal headcounts:", error);
@@ -53,15 +54,15 @@ const Headcounts = () => {
           {/* Calendar Selector */}
           <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
             <Calendar className="w-4 h-4 text-gray-400" />
-            <input 
-              type="date" 
-              value={selectedDate} 
+            <input
+              type="date"
+              value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="bg-transparent border-none text-sm font-semibold text-gray-700 outline-none cursor-pointer"
             />
           </div>
           {/* Refresh Tool */}
-          <button 
+          <button
             onClick={() => fetchHeadcounts(selectedDate)}
             className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm cursor-pointer text-gray-600"
             title="Refresh headcount"
@@ -92,7 +93,7 @@ const Headcounts = () => {
                     <CardTitle className="text-lg font-bold text-gray-800">{mealSlot}</CardTitle>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="p-5 space-y-4">
                   {/* Active Count Row */}
                   <div className="flex items-center justify-between border-b border-gray-50 pb-3">
@@ -119,8 +120,8 @@ const Headcounts = () => {
                       <span className="text-gray-700 font-semibold">{eatingPercentage}%</span>
                     </div>
                     <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-green-500 h-full rounded-full transition-all duration-500" 
+                      <div
+                        className="bg-green-500 h-full rounded-full transition-all duration-500"
                         style={{ width: `${eatingPercentage}%` }}
                       />
                     </div>

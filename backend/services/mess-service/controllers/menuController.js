@@ -69,7 +69,23 @@ export const addMeal = async (req, res) => {
 // 2. GET ENTIRE MENU SCHEDULE
 export const getMenu = async (req, res) => {
     try {
-        const menuSchedule = await Menu.find().sort({ day: 1 });
+        const { date } = req.query;
+        let query = {};
+
+        // If a date is passed (e.g., "2026-08-21"), filter by day of the week
+        if (date) {
+            const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+            // Create a local date without timezone shifts
+            const [year, month, day] = date.split('-').map(Number);
+            const targetDate = new Date(year, month - 1, day);
+            const dayName = daysOfWeek[targetDate.getDay()];
+
+            query.day = dayName; // e.g., { day: "Friday" }
+        }
+
+        const menuSchedule = await Menu.find(query).sort({ day: 1 });
+
         if (!menuSchedule || menuSchedule.length === 0) {
             return res.status(200).json({
                 success: true,
@@ -77,12 +93,14 @@ export const getMenu = async (req, res) => {
                 menu: []
             });
         }
+
         return res.status(200).json({
             success: true,
             message: "Menu schedule fetched successfully",
             menu: menuSchedule
         });
     } catch (error) {
+        console.error("getMenu Error:", error);
         return res.status(500).json({
             success: false,
             message: "Internal server error"
@@ -188,7 +206,7 @@ export const updateMeal = async (req, res) => {
 export const getWeeklyMenuWithRatings = async (req, res) => {
     try {
         const menuItems = await Menu.find({});
-        
+
         const menuWithRatings = await Promise.all(menuItems.map(async (item) => {
             const feedbackRecords = await Attendance.find({
                 [`meals.${item.mealType.toLowerCase()}.rating`]: { $exists: true, $ne: null }
@@ -199,7 +217,7 @@ export const getWeeklyMenuWithRatings = async (req, res) => {
 
             feedbackRecords.forEach(record => {
                 const dayNameOfRecord = new Date(record.date).toLocaleDateString('en-US', { weekday: 'long' });
-                
+
                 if (dayNameOfRecord === item.day) {
                     const mealRating = record.meals[item.mealType.toLowerCase()].rating;
                     if (mealRating) {

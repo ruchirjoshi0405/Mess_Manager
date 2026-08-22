@@ -11,7 +11,8 @@ import {
     allUsers, 
     getUserById, 
     updateUser, 
-    updateRole 
+    updateRole, 
+    getUserCount
 } from '../controllers/userController.js';
 import { isAuthenticated, isAuthorized } from '../middleware/isAuthenticated.js';
 import { singleUpload } from '../middleware/multer.js';
@@ -33,9 +34,10 @@ router.post('/logout', isAuthenticated, logout);
 
 // Profile & Role Management Endpoints
 router.put('/update/:id', isAuthenticated, singleUpload, updateUser);
-router.put('/update-role', isAuthenticated, updateRole);
+router.put('/update-role', isAuthenticated, isAuthorized(['admin', 'mess_manager']), updateRole);
 
 // RBAC Protected Admin Endpoints
 router.get('/allUsers', isAuthenticated, isAuthorized(['admin', 'mess_manager']), allUsers);
+router.get('/countUsers', isAuthenticated, isAuthorized(['admin', 'mess_manager']), getUserCount);
 
 export default router;

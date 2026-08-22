@@ -9,10 +9,10 @@ import { setAttendance, setMenu } from '@/redux/menuSlice'
 import { MESS_API_END_POINT, ATTENDANCE_API_END_POINT } from '@/utils/constants'
 
 const MEAL_CUTOFF_HOURS = {
-    Breakfast: 8,  // 8:00 AM
-    Lunch: 12,     // 12:00 PM
-    Snacks: 16,    // 4:00 PM
-    Dinner: 20     // 8:00 PM
+    breakfast: 8,  // 8:00 AM
+    lunch: 12,     // 12:00 PM
+    snacks: 16,    // 4:00 PM
+    dinner: 20     // 8:00 PM
 }
 
 const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -28,10 +28,10 @@ function StudentAttendance() {
 
     const [isFullDayLeave, setIsFullDayLeave] = useState(false)
     const [meals, setMeals] = useState({
-        Breakfast: { eating: true, food: "Not updated yet", rating: null },
-        Lunch: { eating: true, food: "Not updated yet", rating: null },
-        Snacks: { eating: true, food: "Not updated yet", rating: null },
-        Dinner: { eating: true, food: "Not updated yet", rating: null }
+        breakfast: { eating: true, food: "Not updated yet", rating: null },
+        lunch: { eating: true, food: "Not updated yet", rating: null },
+        snacks: { eating: true, food: "Not updated yet", rating: null },
+        dinner: { eating: true, food: "Not updated yet", rating: null }
     })
 
     // 🟢 NEW: State tracking weekly full schedule modal configurations
@@ -40,7 +40,7 @@ function StudentAttendance() {
     const [menuLoading, setMenuLoading] = useState(false)
 
     const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Snacks', 'Dinner']
+    const MEAL_SLOTS = ['breakfast', 'lunch', 'snacks', 'dinner']
 
     // 🟢 NEW: Asynchronous parser compiling full weekly database rows
     const handleOpenMenuModal = async () => {
@@ -53,16 +53,17 @@ function StudentAttendance() {
             });
 
             const baselineMatrix = {
-                Monday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Tuesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Wednesday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Thursday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Friday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Saturday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null },
-                Sunday: { Breakfast: null, Lunch: null, Snacks: null, Dinner: null }
+                Monday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Tuesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Wednesday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Thursday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Friday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Saturday: { breakfast: null, lunch: null, snacks: null, dinner: null },
+                Sunday: { breakfast: null, lunch: null, snacks: null, dinner: null }
             }
 
             if (res.data.success && res.data.menu) {
+                console.log("res.data.menu:", res.data.menu);
                 res.data.menu.forEach(item => {
                     if (baselineMatrix[item.day] && baselineMatrix[item.day][item.mealType] !== undefined) {
                         baselineMatrix[item.day][item.mealType] = {
@@ -119,15 +120,16 @@ function StudentAttendance() {
             const menuRes = await axios.get(`${MESS_API_END_POINT}/getMenu?date=${targetDate}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
+            console.log("menuRes:", menuRes);
             const attendanceRes = await axios.get(`${ATTENDANCE_API_END_POINT}/view?date=${targetDate}`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
 
             const updatedMeals = {
-                Breakfast: { eating: true, food: "No menu added", rating: null },
-                Lunch: { eating: true, food: "No menu added", rating: null },
-                Snacks: { eating: true, food: "No menu added", rating: null },
-                Dinner: { eating: true, food: "No menu added", rating: null }
+                breakfast: { eating: true, food: "No menu added", rating: null },
+                lunch: { eating: true, food: "No menu added", rating: null },
+                snacks: { eating: true, food: "No menu added", rating: null },
+                dinner: { eating: true, food: "No menu added", rating: null }
             }
 
             if (menuRes.data.success && menuRes.data.menu) {

@@ -15,7 +15,8 @@ function Navbar() {
   const accessToken = localStorage.getItem('accessToken');
 
   // Cleanly identify user permission levels
-  const isManager = user?.role === 'admin' || user?.role === 'mess_manager';
+  const isManager = user?.role === 'mess_manager';
+  const isAdmin = user?.role === 'admin';
   const isStudent = user?.role === 'student';
 
   const dispatch = useDispatch()
@@ -74,7 +75,7 @@ function Navbar() {
             )}
 
             {/* Dashboard Link for Management Staff */}
-            {isManager && (
+            {(isManager || isAdmin) && (
               <li>
                 <Link to={`/dashboard/financials`} className='hover:text-pink-600 transition-colors'>
                   Dashboard
@@ -84,7 +85,7 @@ function Navbar() {
           </ul>
 
           {/* Icon Shortcuts for Logged-In Students */}
-          {isStudent && (
+          {(isStudent || isManager ) && (
             <div className='flex gap-6 mr-4'>
               <Link to='/attendance' className='text-gray-700 hover:text-pink-600 transition-colors flex items-center gap-1' title="Daily Attendance">
                 <CalendarDays className='w-6 h-6' />

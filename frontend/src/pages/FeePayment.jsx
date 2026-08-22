@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, CreditCard, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'sonner'
+import { FINANCE_API_END_POINT } from '@/utils/constants'
 
 function FeePayment() {
     const { user } = useSelector((store) => store.user)
@@ -19,7 +20,7 @@ function FeePayment() {
     const fetchFeeLedger = async () => {
         try {
             setFetchingLedger(true)
-            const res = await axios.get(`${import.meta.env.VITE_URL}/api/v1/finance/fee/history`, {
+            const res = await axios.get(`${FINANCE_API_END_POINT}/fee/history`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
             if (res.data.success) {
@@ -55,9 +56,9 @@ function FeePayment() {
             setLoading(true)
 
             // 1. Pass both amount AND the semester/month session tag to avoid the 400 error
-            const orderRes = await axios.post(`${import.meta.env.VITE_URL}/api/v1/finance/fee/pay`, {
+            const orderRes = await axios.post(`${FINANCE_API_END_POINT}/fee/pay`, {
                 amount: feeDetails.amount,
-                month: feeDetails.month // e.g., "Semester-1 (July-Dec)"
+                month: feeDetails.month
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             })
@@ -80,7 +81,7 @@ function FeePayment() {
                 handler: async function (response) {
                     try {
                         const verifyRes = await axios.post(
-                            `${import.meta.env.VITE_URL}/api/v1/finance/fee/verify`,
+                            `${FINANCE_API_END_POINT}/fee/verify`,
                             response,
                             {
                                 headers: { Authorization: `Bearer ${token}` }
@@ -102,8 +103,8 @@ function FeePayment() {
                 modal: {
                     ondismiss: async function () {
                         try {
-                            const res =await axios.post(
-                                `${import.meta.env.VITE_URL}/api/v1/finance/fee/verify`,
+                            const res = await axios.post(
+                                `${FINANCE_API_END_POINT}/fee/verify`,
                                 {
                                     razorpay_order_id: orderId,
                                     paymentFailed: true
@@ -140,7 +141,7 @@ function FeePayment() {
             razorpayWindow.on("payment.failed", async function () {
                 try {
                     const res = await axios.post(
-                        `${import.meta.env.VITE_URL}/api/v1/finance/fee/verify`,
+                        `${FINANCE_API_END_POINT}/fee/verify`,
                         {
                             razorpay_order_id: orderId,
                             paymentFailed: true
@@ -292,12 +293,12 @@ function FeePayment() {
                                             <span
                                                 className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold 
                                                     ${receipt.status === "Paid"
-                                                    ? "bg-green-100 text-green-700"
-                                                    : receipt.status === "Pending"
-                                                        ? "bg-blue-100 text-blue-700"
-                                                        : receipt.status === "Unpaid"
-                                                            ? "bg-yellow-100 text-yellow-700"
-                                                            : "bg-red-100 text-red-700"
+                                                        ? "bg-green-100 text-green-700"
+                                                        : receipt.status === "Pending"
+                                                            ? "bg-blue-100 text-blue-700"
+                                                            : receipt.status === "Unpaid"
+                                                                ? "bg-yellow-100 text-yellow-700"
+                                                                : "bg-red-100 text-red-700"
                                                     }`}
                                             >
                                                 ● {receipt.status}

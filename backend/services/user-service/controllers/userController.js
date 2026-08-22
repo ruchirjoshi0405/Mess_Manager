@@ -156,7 +156,7 @@ export const login = async (req, res) => {
                 message: "Verify your account then login"
             });
         }
-        
+
         // CRITICAL UPDATE: Embedding role in both Access and Refresh Tokens
         const accessToken = jwt.sign(
             { id: existingUser._id, role: existingUser.role },
@@ -180,7 +180,7 @@ export const login = async (req, res) => {
         await Session.create({
             userId: existingUser._id
         });
-        
+
         return res.status(200).json({
             success: true,
             message: "Welcome back " + existingUser.firstName,
@@ -484,6 +484,25 @@ export const updateRole = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Internal server error"
+        });
+    }
+};
+
+export const getUserCount = async (req, res) => {
+    try {
+        // Filter by role if admins/teachers share the same collection
+        // const count = await User.countDocuments({ role: 'student' });
+        const count = await User.countDocuments({ role: { $in: ['student', 'mess_manager'] }});
+        console.log("count:", count);
+        return res.status(200).json({
+            success: true,
+            count
+        });
+    } catch (error) {
+        console.error("getUserCount error:", error.message);
+        return res.status(500).json({
+            success: false,
+            message: "getUserCount: Internal server error"
         });
     }
 };

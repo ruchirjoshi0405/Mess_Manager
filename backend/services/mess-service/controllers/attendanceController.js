@@ -1,5 +1,5 @@
+import axios from "axios";
 import { Attendance } from "../models/attendanceModel.js";
-import { Menu } from "../models/menuModel.js";
 
 // Helper function to create a clean, timezone-neutral midnight local date object
 const parseAsMidnightLocal = (dateString) => {
@@ -21,7 +21,7 @@ export const getAttendanceByDate = async (req, res) => {
         }
 
         const targetDate = parseAsMidnightLocal(date);
-        
+
         // Mongoose population occurs within the same service DB boundary (Menu model)
         let attendance = await Attendance.findOne({ userId, date: targetDate })
             .populate("meals.breakfast.menuId")
@@ -60,42 +60,69 @@ export const getAttendanceByDate = async (req, res) => {
     }
 };
 
-// 2. TOGGLE OR REGISTER MEAL STATUS
+// 1. UPDATE MEAL STATUS (Only persists 'skipping')
 export const updateMealStatus = async (req, res) => {
     try {
         const userId = req.id;
         const { date, mealType, status } = req.body;
 
-        if (!date || !mealType || status == null) {
+        if (!date || !mealType || !status) {
             return res.status(400).json({
                 success: false,
-                message: "Date, mealType, and eating status are required"
+                message: "Date, mealType, and status ('eating' or 'skipping') are required"
             });
         }
 
         const targetDate = parseAsMidnightLocal(date);
+        const mealKey = mealType.toLowerCase();
+
         let attendance = await Attendance.findOne({ userId, date: targetDate });
 
-        if (!attendance) {
-            attendance = new Attendance({
-                userId,
-                date: targetDate,
-                meals: {}
-            });
+        if (status === 'skipping') {
+            // Create record if it doesn't exist
+            if (!attendance) {
+                attendance = new Attendance({
+                    userId,
+                    date: targetDate,
+                    meals: {}
+                });
+            }
+            // Mark as skipping
+            attendance.meals[mealKey] = {
+                ...attendance.meals[mealKey],
+                status: 'skipping'
+            };
+            await attendance.save();
+        } else if (status === 'eating') {
+            // If setting back to 'eating', clear the skipping status
+            if (attendance) {
+                // Reset meal status
+                if (attendance.meals && attendance.meals[mealKey]) {
+                    attendance.meals[mealKey].status = 'eating'; // or set to null/default
+                }
+
+                // Check if user has any remaining skipping meals or is on leave
+                const hasSkippingMeals = Object.values(attendance.meals || {}).some(
+                    (m) => m && m.status === 'skipping'
+                );
+
+                if (!hasSkippingMeals && !attendance.isOnLeave) {
+                    // Delete the document if there are no reasons left to store an absentee record
+                    await Attendance.deleteOne({ _id: attendance._id });
+                    attendance = null;
+                } else {
+                    await attendance.save();
+                }
+            }
         }
 
-        const mealKey = mealType.toLowerCase();
-        if (attendance.meals[mealKey]) {
-            attendance.meals[mealKey].status = status;
-        }
-
-        await attendance.save();
         return res.status(200).json({
             success: true,
             message: `${mealType} status updated to ${status} successfully`,
-            attendance
+            attendance: attendance || { userId, date: targetDate, isDefaultEating: true }
         });
     } catch (error) {
+        console.error("updateMealStatus error:", error.message);
         return res.status(500).json({
             success: false,
             message: "updateMealStatus: Internal server error"
@@ -103,7 +130,7 @@ export const updateMealStatus = async (req, res) => {
     }
 };
 
-// 3. APPLY FULL-DAY LEAVE OVERRIDE
+// 2. APPLY FULL-DAY LEAVE OVERRIDE
 export const toggleDayLeave = async (req, res) => {
     try {
         const userId = req.id;
@@ -117,39 +144,45 @@ export const toggleDayLeave = async (req, res) => {
         }
 
         const targetDate = parseAsMidnightLocal(date);
-        let attendance = await Attendance.findOne({ userId, date: targetDate });
 
-        if (!attendance) {
-            attendance = new Attendance({
-                userId,
-                date: targetDate
+        if (isOnLeave) {
+            // Mark full day as leave and mark all meal slots as skipping
+            let attendance = await Attendance.findOne({ userId, date: targetDate });
+            if (!attendance) {
+                attendance = new Attendance({
+                    userId,
+                    date: targetDate
+                });
+            }
+
+            attendance.isOnLeave = true;
+            attendance.meals = {
+                breakfast: { status: 'skipping', rating: null },
+                lunch: { status: 'skipping', rating: null },
+                snacks: { status: 'skipping', rating: null },
+                dinner: { status: 'skipping', rating: null }
+            };
+
+            await attendance.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Full day marked as leave successfully",
+                attendance
+            });
+        } else {
+            // Cancelling leave: If the user cancels leave, delete the attendance record 
+            // so they revert to the default state (present/eating)
+            await Attendance.deleteOne({ userId, date: targetDate });
+
+            return res.status(200).json({
+                success: true,
+                message: "Leave cancelled, reverted to default eating status",
+                attendance: null
             });
         }
-
-        attendance.isOnLeave = isOnLeave;
-        if (isOnLeave) {
-            attendance.meals.breakfast.status = 'skipping';
-            attendance.meals.breakfast.rating = null;
-            attendance.meals.lunch.status = 'skipping';
-            attendance.meals.lunch.rating = null;
-            attendance.meals.snacks.status = 'skipping';
-            attendance.meals.snacks.rating = null;
-            attendance.meals.dinner.status = 'skipping';
-            attendance.meals.dinner.rating = null;
-        } else {
-            attendance.meals.breakfast.status = 'eating';
-            attendance.meals.lunch.status = 'eating';
-            attendance.meals.snacks.status = 'eating';
-            attendance.meals.dinner.status = 'eating';
-        }
-
-        await attendance.save();
-        return res.status(200).json({
-            success: true,
-            message: isOnLeave ? "Full day marked as leave successfully" : "Leave cancelled",
-            attendance
-        });
     } catch (error) {
+        console.error("toggleDayLeave error:", error.message);
         return res.status(500).json({
             success: false,
             message: "toggleDayLeave: Internal server error"
@@ -235,6 +268,7 @@ export const rateMealSlot = async (req, res) => {
 };
 
 // 5. GET HEADCOUNT PREDICTIONS (Exclusively for Mess Managers / Admins)
+
 export const getHeadcount = async (req, res) => {
     try {
         const { date } = req.query;
@@ -246,20 +280,43 @@ export const getHeadcount = async (req, res) => {
         }
 
         const targetDate = parseAsMidnightLocal(date);
-        
-        const breakfastEating = await Attendance.countDocuments({ date: targetDate, "meals.breakfast.status": "eating" });
-        const lunchEating = await Attendance.countDocuments({ date: targetDate, "meals.lunch.status": "eating" });
-        const snacksEating = await Attendance.countDocuments({ date: targetDate, "meals.snacks.status": "eating" });
-        const dinnerEating = await Attendance.countDocuments({ date: targetDate, "meals.dinner.status": "eating" });
-        
-        const breakfastSkipping = await Attendance.countDocuments({ date: targetDate, "meals.breakfast.status": "skipping" });
-        const lunchSkipping = await Attendance.countDocuments({ date: targetDate, "meals.lunch.status": "skipping" });
-        const snacksSkipping = await Attendance.countDocuments({ date: targetDate, "meals.snacks.status": "skipping" });
-        const dinnerSkipping = await Attendance.countDocuments({ date: targetDate, "meals.dinner.status": "skipping" });
+
+        // 1. Fetch total registered student count from user-service
+        const baseUrl = process.env.USER_SERVICE_URL || 'http://localhost:5000/api/v1/user';
+        const userServiceUrl = `${baseUrl.replace(/\/$/, '')}/countUsers`;
+
+        let totalRegisteredUsers = 0;
+        try {
+            console.log("Fetching user count from user-service:", userServiceUrl);
+            const userResponse = await axios.get(userServiceUrl, {
+                headers: {
+                    Authorization: req.headers.authorization
+                }
+            });
+            totalRegisteredUsers = userResponse.data.count || 0;
+        } catch (err) {
+            console.error("Failed to fetch user count from user-service:", err.message);
+            // Non-blocking fallback: default to 0 or handle according to requirement
+        }
+
+        // 2. Query skipping counts for each meal in parallel
+        const [breakfastSkipping, lunchSkipping, snacksSkipping, dinnerSkipping] = await Promise.all([
+            Attendance.countDocuments({ date: targetDate, "meals.breakfast.status": "skipping" }),
+            Attendance.countDocuments({ date: targetDate, "meals.lunch.status": "skipping" }),
+            Attendance.countDocuments({ date: targetDate, "meals.snacks.status": "skipping" }),
+            Attendance.countDocuments({ date: targetDate, "meals.dinner.status": "skipping" })
+        ]);
+
+        // 3. Derived calculation: Everyone not explicitly skipping is eating
+        const breakfastEating = Math.max(0, totalRegisteredUsers - breakfastSkipping);
+        const lunchEating = Math.max(0, totalRegisteredUsers - lunchSkipping);
+        const snacksEating = Math.max(0, totalRegisteredUsers - snacksSkipping);
+        const dinnerEating = Math.max(0, totalRegisteredUsers - dinnerSkipping);
 
         return res.status(200).json({
             success: true,
             date: date,
+            totalRegisteredUsers,
             headcounts: {
                 Breakfast: { eating: breakfastEating, skipping: breakfastSkipping },
                 Lunch: { eating: lunchEating, skipping: lunchSkipping },
@@ -268,6 +325,7 @@ export const getHeadcount = async (req, res) => {
             }
         });
     } catch (error) {
+        console.error("getHeadcount error:", error.message);
         return res.status(500).json({
             success: false,
             message: "getHeadcount: Internal server error"
